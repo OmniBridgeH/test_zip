@@ -135,7 +135,7 @@ class _PlayerBackgroundState extends State<PlayerBackground> with SingleTickerPr
     return Stack(fit: StackFit.expand, children: [
       Container(color: const Color(0xFF0B0C12)),
       base,
-      const CustomPaint(painter: _Noise()),
+      const RepaintBoundary(child: CustomPaint(painter: _Noise())),
       Container(color: light ? Colors.white.withValues(alpha: widget.dim / 100 * .6) : Colors.black.withValues(alpha: widget.dim / 100)),
     ]);
   }
