@@ -282,7 +282,7 @@ class _BottomNavState extends State<BottomNav> with TickerProviderStateMixin {
                 filter: ui.ImageFilter.compose(outer: ui.ImageFilter.blur(sigmaX: 6, sigmaY: 6), inner: const ColorFilter.matrix(_saturate)),
                 child: CustomPaint(
                   foregroundPainter: _LiquidRim(spec.value, pal.dark),
-                  child: Container(color: pal.dark ? const Color(0x5214151E) : const Color(0x8CFFFFFF), child: ch),
+                  child: Container(color: pal.dark ? const Color(0x8A14151E) : const Color(0xA6FFFFFF), child: ch),
                 ),
               ),
             ),
@@ -404,7 +404,7 @@ class _LiquidRim extends CustomPainter {
       canvas.clipRRect(rr);
       canvas.drawRect(
           Rect.fromLTWH(x, 0, s.width * .25, s.height),
-          Paint()..shader = ui.Gradient.linear(Offset(x, 0), Offset(x + s.width * .25, 0), [Colors.transparent, Colors.white.withValues(alpha: dark ? .16 : .4), Colors.transparent]));
+          Paint()..shader = ui.Gradient.linear(Offset(x, 0), Offset(x + s.width * .25, 0), [Colors.transparent, Colors.white.withValues(alpha: dark ? .16 : .4), Colors.transparent], [0, .5, 1]));
       canvas.restore();
     }
   }

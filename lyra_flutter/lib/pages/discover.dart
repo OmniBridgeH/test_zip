@@ -346,12 +346,12 @@ class _HeroCardState extends State<_HeroCard> with SingleTickerProviderStateMixi
     Widget vis;
     if (daily) {
       vis = Stack(children: [
-        Positioned(left: 14, top: 12, child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [Text('02', style: ts(34, w: FontWeight.w800, c: Colors.white, num: true, h: 1)), const SizedBox(width: 4), Text('NOV', style: ts(11, w: FontWeight.w700, c: const Color(0xCCFFFFFF), ls: 1.5))])),
-        for (var i = 0; i < 3; i++)
+        Positioned(left: 14, top: 12, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('02', style: ts(32, w: FontWeight.w800, c: Colors.white, num: true, h: 1)), Text('NOV', style: ts(10.5, w: FontWeight.w700, c: const Color(0xCCFFFFFF), ls: 1.5))])),
+        for (var i = 2; i >= 0; i--)
           Positioned(
-            right: 12.0 + i * 16,
-            top: 12.0 + i * 5,
-            child: Transform.rotate(angle: (i - 1) * .16, child: Cover.song(songs[[4, 11, 17][i]], size: 46, radius: 9, shadow: true)),
+            right: 10.0 + i * 13,
+            top: 14.0 + i * 4,
+            child: Transform.rotate(angle: (1 - i) * .18, child: Cover.song(songs[[4, 11, 17][i]], size: 40, radius: 8, shadow: true)),
           ),
       ]);
     } else if (k == 'heart') {
@@ -667,7 +667,7 @@ class _PlatRecState extends State<_PlatRec> {
       case 'official':
         return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           const Sec('官方榜', more: '更多'),
-          HScroll(height: 214, gap: 12, children: [
+          HScroll(height: 232, gap: 12, children: [
             for (final (n, h, ids) in const [('飙升榜', 340.0, [11, 17, 5]), ('新歌榜', 30.0, [8, 13, 19]), ('热歌榜', 210.0, [0, 2, 4]), ('原创榜', 150.0, [7, 21, 12])])
               Press(
                 onTap: () => push(context, PlaylistPage(id: h.toInt() % 8, chartName: n)),
@@ -768,7 +768,7 @@ class _PlatRecState extends State<_PlatRec> {
       case 'videos':
         return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           const Sec('推荐视频', more: '更多'),
-          HScroll(height: 170, gap: 12, children: [for (var i = 1; i <= 4; i++) MvCard(i)]),
+          HScroll(height: 186, gap: 12, children: [for (var i = 1; i <= 4; i++) MvCard(i)]),
         ]);
       case 'nowlisten':
         final hr = DateTime.now().hour;

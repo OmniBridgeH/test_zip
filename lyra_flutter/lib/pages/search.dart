@@ -82,7 +82,7 @@ class _SearchPageState extends State<SearchPage> {
   Widget _idle(BuildContext context) {
     final app = context.app;
     final pal = context.pal;
-    return TabPage(title: '搜索', controller: tabScroll[1], bottom: 160, children: [
+    return TabPage(title: '搜索', controller: tabScroll[1], bottom: 260, children: [
       if (app.history.isNotEmpty) ...[
         Sec('搜索历史', size: 16, trailing: IBtn('trash', size: 36, iconSize: 18, color: pal.t3, onTap: () => showLDialog(context, icon: 'trash', title: '清空搜索历史？', actions: [('取消', BtnKind.sec, null), ('清空', BtnKind.danger, () => app.update(app.history.clear))]))),
         Padding(padding: const EdgeInsets.symmetric(horizontal: Tk.pad), child: Wrap(spacing: 8, runSpacing: 8, children: [for (final h in app.history) LChip(h, onTap: () => go(h))])),
@@ -375,7 +375,7 @@ class _Results extends StatelessWidget {
           Sec('歌单', more: '全部', onMore: () => onType('歌单')),
           for (final p in playlists.take(3)) _plRow(context, p, hl),
           Sec('MV', more: '全部', onMore: () => onType('MV')),
-          HScroll(height: 170, gap: 12, children: [for (var i = 0; i < 4; i++) MvCard(i, w: 220)]),
+          HScroll(height: 180, gap: 12, children: [for (var i = 0; i < 4; i++) MvCard(i, w: 220)]),
           const Sec('艺术家'),
           HScroll(height: 150, gap: 16, children: [
             for (final (i, a) in artists.take(6).indexed)

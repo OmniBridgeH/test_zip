@@ -68,7 +68,8 @@ class _SourceBarState extends State<SourceBar> with SingleTickerProviderStateMix
                 );
               },
             ),
-          Padding(
+          Positioned.fill(
+            child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12),
             child: Row(children: [
               PlatBadge(p, size: widget.compact ? 20 : 26),
@@ -85,6 +86,7 @@ class _SourceBarState extends State<SourceBar> with SingleTickerProviderStateMix
                 child: Container(width: 28, height: 28, decoration: BoxDecoration(color: pal.s2, shape: BoxShape.circle), child: Icon(ic('down'), size: 18, color: pal.t2)),
               ),
             ]),
+          ),
           ),
         ]),
       ),

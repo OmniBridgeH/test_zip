@@ -49,9 +49,11 @@ class _PlaylistPageState extends State<PlaylistPage> {
         child: ShaderMask(
           shaderCallback: (r) => const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Colors.black, Colors.transparent]).createShader(r),
           blendMode: BlendMode.dstIn,
-          child: ImageFiltered(
-            imageFilter: ui.ImageFilter.blur(sigmaX: 40, sigmaY: 40),
-            child: Opacity(opacity: pal.dark ? .65 : .45, child: Transform.scale(scale: 1.3 + math.max(0, -y) / 400, child: Cover.pl(pl, size: 0, radius: 0))),
+          child: ClipRect(
+            child: ImageFiltered(
+              imageFilter: ui.ImageFilter.blur(sigmaX: 40, sigmaY: 40, tileMode: TileMode.decal),
+              child: Opacity(opacity: pal.dark ? .65 : .45, child: Transform.scale(scale: 1.3 + math.max(0, -y) / 400, child: Cover.pl(pl, size: 0, radius: 0))),
+            ),
           ),
         ),
       ),

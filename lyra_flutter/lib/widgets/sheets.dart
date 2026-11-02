@@ -1066,16 +1066,18 @@ class _LFieldState extends State<LField> with SingleTickerProviderStateMixin {
         if (widget.icon != null) Padding(padding: EdgeInsets.only(left: 14, right: 10, top: widget.lines > 1 ? 16 : 0), child: Icon(ic(widget.icon!), size: 19, color: focus ? pal.accText : pal.t3)),
         if (widget.icon == null) const SizedBox(width: 14),
         Expanded(
+          child: SizedBox(
+          height: h - 3,
           child: Stack(children: [
             AnimatedPositioned(
               duration: const Duration(milliseconds: 200),
               curve: Tk.out,
-              top: up ? 6 : (widget.lines > 1 ? 16 : 16),
+              top: up ? 6 : 14,
               left: 0,
               child: AnimatedDefaultTextStyle(duration: const Duration(milliseconds: 200), style: ts(up ? 11 : 15, c: err ? pal.danger : (focus ? pal.accText : pal.t3)), child: Text(widget.label)),
             ),
             Padding(
-              padding: EdgeInsets.only(top: widget.lines > 1 ? 22 : 18),
+              padding: EdgeInsets.only(top: widget.lines > 1 ? 24 : 22),
               child: TextField(
                 controller: tc,
                 focusNode: fn,
@@ -1090,6 +1092,7 @@ class _LFieldState extends State<LField> with SingleTickerProviderStateMixin {
               ),
             ),
           ]),
+        ),
         ),
         if (widget.ok) Padding(padding: const EdgeInsets.only(right: 10), child: TweenAnimationBuilder<double>(tween: Tween(begin: 0, end: 1), duration: const Duration(milliseconds: 420), curve: Tk.spring, builder: (_, v, __) => Transform.scale(scale: v, child: Icon(Icons.check_circle_rounded, color: pal.ok, size: 20)))),
         if (widget.password) IBtn(hide ? 'eye' : 'eyeoff', size: 40, iconSize: 19, color: pal.t3, onTap: () => setState(() => hide = !hide)),
