@@ -16,6 +16,7 @@ void main() {
   registerSheets();
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(statusBarColor: Colors.transparent, systemNavigationBarColor: Colors.transparent));
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+  SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   final app = AppState();
   final shot = shotFromUrl();
   if (shot != null) applyShotState(app, shot);

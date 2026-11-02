@@ -33,7 +33,7 @@ Future<void> openPlayer(BuildContext context) async {
     },
   ));
   _playerOpen = false;
-  SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp, DeviceOrientation.portraitDown, DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight]);
+  SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
 }
 
 class PlayerScreen extends StatefulWidget {
