@@ -1,5 +1,6 @@
 // Lyra（暂名）· Flutter 移动端（mock 数据版）
 // 入口：AppScope（全局状态）→ MaterialApp（主题随设置实时切换）→ 鉴权流程 / 主界面。
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'auth/auth.dart';

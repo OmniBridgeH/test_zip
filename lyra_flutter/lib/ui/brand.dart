@@ -129,7 +129,7 @@ class _IconPainter extends CustomPainter {
           ..style = PaintingStyle.stroke
           ..strokeWidth = .9
           ..color = const Color(0xFF2A2C33);
-        for (final r in const [44.0, 40, 36, 32, 28, 24]) {
+        for (final r in const <double>[44, 40, 36, 32, 28, 24]) {
           canvas.drawCircle(const Offset(50, 50), r, g);
         }
         canvas.drawCircle(const Offset(50, 50), 20, Paint()..color = const Color(0xFFF4D28A));

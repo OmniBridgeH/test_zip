@@ -146,7 +146,6 @@ void openNewPlaylist(BuildContext context) {
   var private = false;
   var hue = 200.0;
   showLSheet(context, title: '新建歌单', builder: (c) => StatefulBuilder(builder: (c, set) {
-        final pal = c.pal;
         final app = c.app;
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: Tk.pad),

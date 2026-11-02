@@ -287,7 +287,6 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     final app = context.app;
-    final pal = context.pal;
     final mq = MediaQuery.of(context);
     final reg = seg == '注册';
     Widget form;
