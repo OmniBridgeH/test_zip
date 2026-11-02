@@ -218,7 +218,7 @@ class _BottomNavState extends State<BottomNav> with TickerProviderStateMixin {
 
     // ---------- 图标 ----------
     final row = Row(children: [
-      for (var k = 0; k < n; k++) _item(app, pal, tabs[k], tabs[k] == widget.tab, itemW, itemH, bar),
+      for (var k = 0; k < n; k++) Expanded(child: _item(app, pal, tabs[k], tabs[k] == widget.tab, itemW, itemH, bar)),
     ]);
 
     final content = Padding(
@@ -372,7 +372,7 @@ class _BottomNavState extends State<BottomNav> with TickerProviderStateMixin {
         setState(() => justTapped = tab);
         widget.onTab(tab);
       },
-      child: SizedBox(width: w, height: h, child: inner),
+      child: SizedBox(height: h, child: ClipRect(child: inner)),
     );
   }
 }
