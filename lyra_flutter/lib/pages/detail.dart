@@ -1,0 +1,314 @@
+// 二级页：歌单详情（模糊背景视差 + 多选）、歌手、听歌统计。
+import 'dart:math' as math;
+import 'dart:ui' as ui;
+import 'package:flutter/material.dart';
+import '../core/state.dart';
+import '../core/tokens.dart';
+import '../data/mock.dart';
+import '../data/models.dart';
+import '../shell/shell.dart';
+import '../ui/cover.dart';
+import '../ui/icons.dart';
+import '../ui/kit.dart';
+import '../widgets/sheets.dart';
+import 'common.dart';
+import 'discover.dart';
+
+class PlaylistPage extends StatefulWidget {
+  final int id;
+  final String? chartName;
+  const PlaylistPage({super.key, required this.id, this.chartName});
+  @override
+  State<PlaylistPage> createState() => _PlaylistPageState();
+}
+
+class _PlaylistPageState extends State<PlaylistPage> {
+  bool multi = false, faved = false;
+  String sort = '默认';
+  final sel = <int>{};
+
+  @override
+  Widget build(BuildContext context) {
+    final app = context.app;
+    final pal = context.pal;
+    final Playlist base = widget.id >= 100 ? app.myPlaylists.firstWhere((x) => x.id == widget.id, orElse: () => app.myPlaylists.first) : playlists[widget.id % playlists.length];
+    final pl = widget.chartName == null ? base : Playlist(base.id, widget.chartName!, by: '${app.platform.name} 官方', count: 30, playCount: base.playCount, hue: base.hue, variant: 2);
+    var ids = widget.id == 100 ? app.liked.toList() : [for (var i = 0; i < songs.length; i++) if ((i * 7 + pl.hue.toInt()) % 3 != 0) i].take(14).toList();
+    if (sort == '歌名') ids = [...ids]..sort((a, b) => songs[a].title.compareTo(songs[b].title));
+    if (sort == '时长') ids = [...ids]..sort((a, b) => songs[a].dur.compareTo(songs[b].dur));
+    final listName = pl.title;
+    return SubPage(
+      title: pl.title,
+      fadeTitle: true,
+      actions: [IBtn('share', onTap: () => openShareCode(context, playlistTitle: pl.title))],
+      hero: (y) => Positioned(
+        left: 0,
+        right: 0,
+        top: -y * .5,
+        height: 420,
+        child: ShaderMask(
+          shaderCallback: (r) => const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Colors.black, Colors.transparent]).createShader(r),
+          blendMode: BlendMode.dstIn,
+          child: ImageFiltered(
+            imageFilter: ui.ImageFilter.blur(sigmaX: 40, sigmaY: 40),
+            child: Opacity(opacity: pal.dark ? .65 : .45, child: Transform.scale(scale: 1.3 + math.max(0, -y) / 400, child: Cover.pl(pl, size: 0, radius: 0))),
+          ),
+        ),
+      ),
+      floating: multi ? _multiBar(context, ids) : null,
+      children: [
+        Column(children: [
+          const SizedBox(height: 8),
+          Hero(tag: 'pl-${pl.id}', child: Cover.pl(pl, size: 196, radius: 24, child: widget.id == 100 ? const Center(child: Icon(Icons.favorite_rounded, color: Colors.white, size: 64)) : null)),
+          const SizedBox(height: 18),
+          Padding(padding: const EdgeInsets.symmetric(horizontal: 30), child: Text(pl.title, textAlign: TextAlign.center, style: ts(22, w: FontWeight.w800, c: pal.t1))),
+          const SizedBox(height: 8),
+          Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+            Avatar((pl.by.isEmpty ? '我' : pl.by)[0], size: 22),
+            const SizedBox(width: 6),
+            Text('${pl.by.isEmpty ? '我' : pl.by} · ${pl.count} 首${pl.playCount.isNotEmpty ? ' · ${pl.playCount} 次播放' : ''}', style: ts(13, c: pal.t2)),
+          ]),
+          const SizedBox(height: 8),
+          SizedBox(width: 300, child: Text('适合在夜里一个人走路时听。霓虹、雨声、合成器和一点点想念。', textAlign: TextAlign.center, style: ts(12.5, c: pal.t3, h: 1.55))),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(Tk.pad, 18, Tk.pad, 0),
+            child: Row(children: [
+              Expanded(child: Btn('播放全部', icon: 'play', onTap: () => app.playAll(widget.id == 100 ? 'like' : 'all', name: listName))),
+              const SizedBox(width: 10),
+              IBtn('shuffle', size: 48, bg: pal.s2, onTap: () => app.playAll(widget.id == 100 ? 'like' : 'all', shuffle: true, name: listName)),
+              const SizedBox(width: 10),
+              IBtn('download', size: 48, bg: pal.s2, onTap: () => toast('已加入下载队列 · ${pl.count} 首', 'download')),
+              const SizedBox(width: 10),
+              IBtn(faved ? 'heartf' : 'heart', size: 48, bg: pal.s2, color: faved ? pal.accText : null, onTap: () {
+                setState(() => faved = !faved);
+                toast(faved ? '已收藏歌单' : '已取消收藏', faved ? 'heartf' : 'heart');
+              }),
+            ]),
+          ),
+        ]),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(Tk.pad, 20, Tk.pad, 6),
+          child: Row(children: [
+            Expanded(child: Text('${ids.length} 首歌曲', style: ts(15, w: FontWeight.w700, c: pal.t1))),
+            LChip(sort, icon: 'sort', h: 30, onTap: () => setState(() => sort = const {'默认': '歌名', '歌名': '时长', '时长': '默认'}[sort]!)),
+            const SizedBox(width: 8),
+            LChip(multi ? '完成' : '多选', icon: 'check', h: 30, on: multi, onTap: () => setState(() {
+              multi = !multi;
+              sel.clear();
+            })),
+          ]),
+        ),
+        for (final id in ids)
+          multi
+              ? Press(
+                  onTap: () => setState(() => sel.contains(id) ? sel.remove(id) : sel.add(id)),
+                  child: SizedBox(
+                    height: 64,
+                    child: Row(children: [
+                      const SizedBox(width: Tk.pad),
+                      AnimatedContainer(duration: Tk.fast, width: 22, height: 22, decoration: BoxDecoration(shape: BoxShape.circle, color: sel.contains(id) ? pal.acc : Colors.transparent, border: Border.all(color: sel.contains(id) ? pal.acc : pal.t3, width: 1.6)), child: sel.contains(id) ? Icon(ic('check'), size: 14, color: pal.ink) : null),
+                      const SizedBox(width: 12),
+                      Cover.song(songs[id], size: 48),
+                      const SizedBox(width: 12),
+                      Expanded(child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [Text(songs[id].title, style: ts(15, w: FontWeight.w600, c: pal.t1)), Text('${songs[id].artist} · ${songs[id].album}', style: ts(12.5, c: pal.t2))])),
+                    ]),
+                  ),
+                )
+              : SongRow(songs[id], key: ValueKey(id), list: widget.id == 100 ? 'like' : 'all', listName: listName, heart: widget.id == 100),
+      ],
+    );
+  }
+
+  Widget _multiBar(BuildContext context, List<int> ids) {
+    final pal = context.pal;
+    final app = context.app;
+    return Positioned(
+      left: 12,
+      right: 12,
+      bottom: MediaQuery.of(context).padding.bottom + 112,
+      child: Glass(
+        radius: 22,
+        color: pal.glassStrong,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+          child: Row(children: [
+            const SizedBox(width: 10),
+            Text('已选 ${sel.length}', style: ts(13.5, w: FontWeight.w700, c: pal.t1)),
+            const Spacer(),
+            for (final (i, l, f) in [
+              ('next', '下一首', () {
+                for (final id in sel) {
+                  app.playNext(id);
+                }
+                toast('已添加 ${sel.length} 首到下一首播放', 'next');
+              }),
+              ('plus', '加歌单', () => openAddToPlaylist(context, sel.isEmpty ? ids.first : sel.first)),
+              ('download', '下载', () => toast('已加入下载 · ${sel.length} 首', 'download')),
+              ('trash', '移除', () => showLDialog(context, icon: 'trash', title: '从歌单移除 ${sel.length} 首？', actions: [('取消', BtnKind.sec, null), ('移除', BtnKind.danger, () => toast('已移除', 'trash'))])),
+            ])
+              Opacity(opacity: sel.isEmpty ? .4 : 1, child: Press(onTap: sel.isEmpty ? null : f, child: Padding(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), child: Column(children: [Icon(ic(i), size: 20, color: pal.t1), Text(l, style: ts(10.5, c: pal.t2))])))),
+          ]),
+        ),
+      ),
+    );
+  }
+}
+
+class ArtistPage extends StatefulWidget {
+  final int id;
+  const ArtistPage({super.key, required this.id});
+  @override
+  State<ArtistPage> createState() => _ArtistPageState();
+}
+
+class _ArtistPageState extends State<ArtistPage> {
+  bool follow = false;
+  @override
+  Widget build(BuildContext context) {
+    final app = context.app;
+    final pal = context.pal;
+    final s = songs[widget.id];
+    final mine = {...songs.where((x) => x.artist == s.artist), ...songs.take(3)}.take(6).toList();
+    return SubPage(
+      title: s.artist,
+      fadeTitle: true,
+      actions: [IBtn(follow ? 'heartf' : 'heart', color: follow ? pal.accText : null, onTap: () {
+        setState(() => follow = !follow);
+        toast(follow ? '已关注 ${s.artist}' : '已取消关注', 'heartf');
+      })],
+      hero: (y) => Positioned(
+        left: 0,
+        right: 0,
+        top: -y * .45,
+        height: 380,
+        child: ShaderMask(
+          shaderCallback: (r) => const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Colors.black, Colors.black, Colors.transparent], stops: [0, .55, 1]).createShader(r),
+          blendMode: BlendMode.dstIn,
+          child: Transform.scale(scale: 1 + math.max(0, -y) / 380, child: Cover(hue: s.hue, variant: 1, size: 0, radius: 0)),
+        ),
+      ),
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(Tk.pad, 150, Tk.pad, 0),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(s.artist, style: ts(34, w: FontWeight.w800, c: Colors.white).copyWith(shadows: const [Shadow(color: Color(0x66000000), blurRadius: 20)])),
+            const SizedBox(height: 6),
+            Text('12.4 万关注 · 本月 38 万次聆听', style: ts(13, c: pal.t2)),
+            const SizedBox(height: 16),
+            Row(children: [
+              Btn('播放热门', icon: 'play', onTap: () => app.playAll('all', name: '${s.artist} · 热门')),
+              const SizedBox(width: 10),
+              Btn.sec('歌手电台', icon: 'wave', onTap: () {
+                app.playAll('hot', shuffle: true, name: '${s.artist} 电台');
+                toast('${s.artist} 电台：相似歌手连续播放', 'wave');
+              }),
+            ]),
+          ]),
+        ),
+        const Sec('热门歌曲'),
+        for (final (i, x) in mine.indexed) SongRow(x, num: i, list: 'all', listName: '${s.artist} · 热门'),
+        const Sec('专辑'),
+        HScroll(height: 186, gap: 26, children: [for (final (i, id) in [s.id, (s.id + 8) % 24, (s.id + 16) % 24].indexed) AlbumCard(songs[id], onTap: () => push(context, PlaylistPage(id: i, chartName: songs[id].album)))]),
+      ],
+    );
+  }
+}
+
+class StatsPage extends StatefulWidget {
+  const StatsPage({super.key});
+  @override
+  State<StatsPage> createState() => _StatsPageState();
+}
+
+class _StatsPageState extends State<StatsPage> {
+  String range = '近 7 天';
+  @override
+  Widget build(BuildContext context) {
+    final pal = context.pal;
+    final k = range == '近 7 天' ? 1.0 : range == '近 30 天' ? 4.1 : 11.6;
+    final cards = [('聆听时长', 6.2 * k, 1, '小时', '+18%'), ('播放次数', 214 * k, 0, '次', '+9%'), ('不同歌曲', 63 * math.sqrt(k), 0, '首', ''), ('不同歌手', 21 * math.sqrt(k), 0, '位', '')];
+    const bars = [42, 65, 38, 80, 54, 96, 71];
+    final rnd = math.Random(7);
+    return SubPage(title: '听歌统计', children: [
+      Seg(const ['近 7 天', '近 30 天', '近 90 天'], range, (v) => setState(() => range = v)),
+      Padding(
+        padding: const EdgeInsets.fromLTRB(Tk.pad, 16, Tk.pad, 0),
+        child: GridView.count(
+          crossAxisCount: 2,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          mainAxisSpacing: 10,
+          crossAxisSpacing: 10,
+          childAspectRatio: 1.7,
+          children: [
+            for (final (l, v, d, u, delta) in cards)
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(color: pal.s1, borderRadius: BorderRadius.circular(20), border: Border.all(color: pal.line)),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(l, style: ts(12, c: pal.t2)),
+                  const SizedBox(height: 6),
+                  Row(crossAxisAlignment: CrossAxisAlignment.baseline, textBaseline: TextBaseline.alphabetic, children: [CountUp(v, key: ValueKey('$range$l'), decimals: d, style: ts(28, w: FontWeight.w800, c: pal.t1, num: true)), const SizedBox(width: 3), Text(u, style: ts(13, c: pal.t3))]),
+                  if (delta.isNotEmpty) Text('较上期 $delta', style: ts(11.5, c: pal.ok)),
+                ]),
+              ),
+          ],
+        ),
+      ),
+      const Sec('每日时长', size: 16, more: '分钟'),
+      CardBox(
+        padding: const EdgeInsets.fromLTRB(14, 18, 14, 12),
+        child: SizedBox(
+          height: 150,
+          child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+            for (var i = 0; i < 7; i++)
+              Expanded(
+                child: Column(mainAxisAlignment: MainAxisAlignment.end, children: [
+                  Text('${(bars[i] * 1.2).round()}', style: ts(10, c: pal.t3, num: true)),
+                  const SizedBox(height: 4),
+                  TweenAnimationBuilder<double>(
+                    key: ValueKey('$range$i'),
+                    tween: Tween(begin: 0, end: bars[(i + range.length) % 7] / 100),
+                    duration: Duration(milliseconds: 600 + i * 60),
+                    curve: Tk.softSpring,
+                    builder: (_, v, __) => Container(height: 110 * v, margin: const EdgeInsets.symmetric(horizontal: 7), decoration: BoxDecoration(color: pal.acc.withValues(alpha: i == 5 ? 1 : .55), borderRadius: BorderRadius.circular(6))),
+                  ),
+                  const SizedBox(height: 6),
+                  Text('一二三四五六日'[i], style: ts(11, c: pal.t3)),
+                ]),
+              ),
+          ]),
+        ),
+      ),
+      const Sec('风格分布', size: 16),
+      CardBox(
+        child: Column(children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: SizedBox(height: 12, child: Row(children: [for (final (i, t) in tasteChips.indexed) Expanded(flex: t[1] as int, child: Container(color: hsl(40.0 + i * 52, .7, .62)))])),
+          ),
+          const SizedBox(height: 12),
+          Wrap(spacing: 14, runSpacing: 8, children: [
+            for (final (i, t) in tasteChips.indexed) Row(mainAxisSize: MainAxisSize.min, children: [Container(width: 8, height: 8, decoration: BoxDecoration(color: hsl(40.0 + i * 52, .7, .62), shape: BoxShape.circle)), const SizedBox(width: 5), Text('${t[0]} ${t[1]}%', style: ts(12, c: pal.t2))]),
+          ]),
+        ]),
+      ),
+      const Sec('90 天足迹', size: 16),
+      CardBox(
+        child: GridView.count(
+          crossAxisCount: 15,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          mainAxisSpacing: 4,
+          crossAxisSpacing: 4,
+          children: [for (var i = 0; i < 90; i++) Container(decoration: BoxDecoration(color: pal.acc.withValues(alpha: .08 + rnd.nextDouble() * .9 * (i % 7 == 3 ? .3 : 1)), borderRadius: BorderRadius.circular(3)))],
+        ),
+      ),
+      const Sec('最常听的歌手', size: 16),
+      HScroll(height: 120, gap: 16, children: [
+        for (final (i, a) in songs.map((s) => s.artist).toSet().take(6).indexed)
+          SizedBox(width: 76, child: Column(children: [Cover(hue: i * 60.0 + 20, variant: 1, size: 76, radius: 38), const SizedBox(height: 6), Text(a, maxLines: 1, overflow: TextOverflow.ellipsis, style: ts(12.5, w: FontWeight.w600, c: pal.t1)), Text('${48 - i * 7} 次', style: ts(11, c: pal.t3))])),
+      ]),
+    ]);
+  }
+}
