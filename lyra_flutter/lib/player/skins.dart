@@ -381,6 +381,7 @@ class VinylSkin extends StatelessWidget {
 }
 
 class _DiscPainter extends CustomPainter {
+  const _DiscPainter();
   @override
   void paint(Canvas canvas, Size s) {
     final c = s.center(Offset.zero);
@@ -1066,6 +1067,7 @@ class FilmSkin extends StatelessWidget {
 }
 
 class _Sprockets extends CustomPainter {
+  const _Sprockets();
   @override
   void paint(Canvas canvas, Size s) {
     final p = Paint()..color = const Color(0xFF0C0B0A);
