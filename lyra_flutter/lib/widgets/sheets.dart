@@ -709,7 +709,9 @@ void openLyricCard(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: Tk.pad),
       child: Column(children: [
-        Cover.song(
+        SizedBox(
+          height: 360,
+          child: Cover.song(
           s,
           size: 0,
           radius: 24,
@@ -733,6 +735,7 @@ void openLyricCard(BuildContext context) {
               ]),
             ),
           ),
+        ),
         ),
         const SizedBox(height: 14),
         Row(children: [

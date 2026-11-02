@@ -518,7 +518,7 @@ class CaptchaState extends State<Captcha> with TickerProviderStateMixin {
             padding: const EdgeInsets.symmetric(horizontal: 12),
             decoration: BoxDecoration(color: const Color(0x14FFFFFF), borderRadius: BorderRadius.circular(10)),
             alignment: Alignment.centerLeft,
-            child: TextField(controller: tc, maxLength: 4, style: ts(15, c: Colors.white, ls: 2), cursorColor: pal.acc, decoration: InputDecoration(isCollapsed: true, counterText: '', border: InputBorder.none, hintText: '输入图中字符', hintStyle: ts(13.5, c: const Color(0x66FFFFFF)))),
+            child: TextField(controller: tc, maxLength: 4, style: ts(15, c: Colors.white, ls: 2), cursorColor: pal.acc, decoration: InputDecoration(isCollapsed: true, counterText: '', border: InputBorder.none, hintText: '输入字符', hintStyle: ts(13.5, c: const Color(0x66FFFFFF)))),
           ),
         ),
         const SizedBox(width: 8),

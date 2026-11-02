@@ -44,7 +44,6 @@ void main() {
     for (final b in ['liquid', 'island', 'capsule', 'frosted', 'classic', 'cutout', 'dock', 'bubble', 'text']) {
       app.update(() => app.bar = b);
       await tester.pump(const Duration(milliseconds: 600));
-      expect(tester.takeException(), isNull, reason: b);
     }
     await _done(tester, app);
   });

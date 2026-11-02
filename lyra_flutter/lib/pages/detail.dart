@@ -241,7 +241,7 @@ class _StatsPageState extends State<StatsPage> {
           physics: const NeverScrollableScrollPhysics(),
           mainAxisSpacing: 10,
           crossAxisSpacing: 10,
-          childAspectRatio: 1.7,
+          childAspectRatio: 1.45,
           children: [
             for (final (l, v, d, u, delta) in cards)
               Container(
