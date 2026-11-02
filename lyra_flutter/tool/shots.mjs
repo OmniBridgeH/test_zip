@@ -4,27 +4,27 @@ import fs from 'node:fs';
 
 const list = JSON.parse(fs.readFileSync('./shots.json', 'utf8'));
 fs.mkdirSync('./shots', { recursive: true });
-const browser = await chromium.launch();
+const browser = await chromium.launch({ args: ['--use-gl=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
 const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
-const page = await ctx.newPage();
 const logs = [];
-page.on('pageerror', e => logs.push('PAGEERROR ' + e.message));
-page.on('console', m => { if (m.type() === 'error' || /Exception|Error/.test(m.text())) logs.push(m.type() + ' ' + m.text()); });
+const log = s => { logs.push(s); console.log(s); fs.writeFileSync('./shots/log.txt', logs.join('\n')); };
 
 let i = 0;
 for (const id of list) {
   i++;
-  const before = logs.length;
+  const t0 = Date.now();
+  const page = await ctx.newPage();
+  page.on('pageerror', e => log(`[${id}] PAGEERROR ${e.message}`));
+  page.on('console', m => { const t = m.text(); if (m.type() === 'error' || /Exception|Error|overflow/i.test(t)) log(`[${id}] ${m.type()} ${t.slice(0, 400)}`); });
   try {
-    await page.goto(`http://localhost:8080/?shot=${encodeURIComponent(id)}`, { waitUntil: 'load', timeout: 60000 });
-    await page.waitForSelector('flt-glass-pane, flutter-view', { timeout: 60000 });
-    await page.waitForTimeout(i === 1 ? 9000 : 3500); // 首次需下载 CanvasKit 与回退字体
-    await page.screenshot({ path: `./shots/${String(i).padStart(2, '0')}-${id.replace(/[^\w-]+/g, '_')}.png` });
+    await page.goto(`http://localhost:8080/?shot=${encodeURIComponent(id)}`, { waitUntil: 'commit', timeout: 20000 });
+    await page.waitForSelector('flutter-view, flt-glass-pane', { timeout: 20000, state: 'attached' });
+    await page.waitForTimeout(i === 1 ? 9000 : 4000); // 首次需下载 CanvasKit 与回退字体
+    await page.screenshot({ path: `./shots/${String(i).padStart(2, '0')}-${id.replace(/[^\w-]+/g, '_')}.png`, timeout: 15000, animations: 'allow', caret: 'initial' });
+    log(`ok ${id} ${Date.now() - t0}ms`);
   } catch (e) {
-    logs.push(`SHOT-FAIL ${id}: ${e.message}`);
+    log(`SHOT-FAIL ${id}: ${e.message.split('\n')[0]}`);
   }
-  if (logs.length > before) logs.splice(before, 0, `--- ${id}`);
+  await page.close();
 }
-fs.writeFileSync('./shots/log.txt', logs.join('\n') || 'no errors');
 await browser.close();
-console.log(logs.slice(0, 80).join('\n'));
