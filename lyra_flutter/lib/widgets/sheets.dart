@@ -857,7 +857,7 @@ void openBarStyles(BuildContext context) {
         physics: const NeverScrollableScrollPhysics(),
         mainAxisSpacing: 12,
         crossAxisSpacing: 10,
-        childAspectRatio: .78,
+        childAspectRatio: .66,
         children: [
           for (final e in barStyles.entries)
             BarPreviewTile(e.key, on: app.bar == e.key, desc: barDesc[e.key], onTap: () {

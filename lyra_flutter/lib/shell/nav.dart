@@ -86,7 +86,7 @@ class _BottomNavState extends State<BottomNav> with TickerProviderStateMixin {
       curve: Tk.out,
       width: navW,
       height: height,
-      child: _body(app, pal, tabs, navW, height, collapse, g),
+      child: LayoutBuilder(builder: (_, cs) => _body(app, pal, tabs, cs.maxWidth, cs.maxHeight, collapse, g)),
     );
 
     final children = <Widget>[
