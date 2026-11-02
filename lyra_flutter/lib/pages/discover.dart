@@ -93,7 +93,7 @@ class DiscoverPage extends StatelessWidget {
           duration: const Duration(milliseconds: 420),
           child: app.loading
               ? const SkeletonPage(key: ValueKey('sk'))
-              : Column(key: ValueKey('c${app.plat}${logged}'), crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              : Column(key: ValueKey('c${app.plat}$logged'), crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                   if (!logged) ...[const Rise(0, _LoginStrip()), const SizedBox(height: 16), const Rise(1, BannerCarousel())],
                   for (var i = 0; i < mods.length; i++) Rise(i + 2, mods[i]),
                 ]),

@@ -1,6 +1,5 @@
 // 设计令牌：与原型 css/tokens.css、tokens.json 一一对应。
 import 'dart:math' as math;
-import 'dart:ui' show FontFeature;
 import 'package:flutter/material.dart';
 
 class Accent {

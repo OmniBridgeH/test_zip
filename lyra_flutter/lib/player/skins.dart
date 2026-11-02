@@ -1356,7 +1356,7 @@ class TerminalSkin extends StatelessWidget {
                 final k = app.lyricIndex;
                 final b = app.playing ? app.beat() : 0.0;
                 const blocks = '▁▂▃▄▅▆▇█';
-                final spec = List.generate(28, (i) => blocks[((b * .7 + .3 * math.sin(p * 8 + i)).abs() * (1 - (i - 13.5).abs() / 18) * 7.99).floor().clamp(0, 7)]).join();
+                final spec = List.generate(20, (i) => blocks[((b * .7 + .3 * math.sin(p * 8 + i)).abs() * (1 - (i - 9.5).abs() / 13) * 7.99).floor().clamp(0, 7)]).join();
                 final pr = p / s.dur;
                 final bar = '${'#' * (pr * 24).round()}${'-' * (24 - (pr * 24).round())}';
                 final l = lyrics[k].text;
@@ -1368,7 +1368,7 @@ class TerminalSkin extends StatelessWidget {
                   Text('[stream ] FLAC 16bit/44.1kHz · 27.8MB · cache hit', style: mono.copyWith(color: dim)),
                   Text('[  ok   ] ${s.title} — ${s.artist}', style: mono.copyWith(fontWeight: FontWeight.w700)),
                   const SizedBox(height: 10),
-                  Text(spec, style: mono.copyWith(fontSize: 20, height: 1.1, letterSpacing: 1)),
+                  Text(spec, maxLines: 1, overflow: TextOverflow.clip, style: mono.copyWith(fontSize: 22, height: 1.1)),
                   const SizedBox(height: 6),
                   Text('[$bar] ${fmtTime(p)} / ${fmtTime(s.dur.toDouble())}', style: mono),
                   Text('mode=${app.mode} speed=${app.speed.toStringAsFixed(2)}x vol=${(app.vol * 100).round()}%', style: mono.copyWith(color: dim)),
