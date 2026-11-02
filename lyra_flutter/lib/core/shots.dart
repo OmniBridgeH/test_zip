@@ -31,6 +31,7 @@ void applyShotState(AppState app, String id) {
     if (m == 'qq' || m == 'kugou' || m == 'kuwo' || m == 'migu') app.plat = m;
     if (m == 'nologin') app.platLogin.clear();
     if (m == 'paused') app.playing = false;
+    if (m == 'clip') app.clipSong = 7;
   }
   switch (parts.first) {
     case 'disclaimer':

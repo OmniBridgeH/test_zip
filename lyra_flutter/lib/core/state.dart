@@ -41,6 +41,7 @@ class AppState extends ChangeNotifier {
   // ---------- 导航 ----------
   int tab = 0; // 0 发现 1 搜索 2 每日 3 音乐库 4 我的
   bool navMin = false, searchFocus = false;
+  int? clipSong; // 剪贴板里识别到的分享口令（歌曲 id）
 
   // ---------- 播放 ----------
   int cur = 0;

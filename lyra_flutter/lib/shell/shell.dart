@@ -9,6 +9,7 @@ import '../pages/library.dart';
 import '../pages/me.dart';
 import '../pages/search.dart';
 import '../ui/kit.dart';
+import 'clip_banner.dart';
 import 'mini.dart';
 import 'nav.dart';
 
@@ -34,7 +35,27 @@ class Shell extends StatefulWidget {
   State<Shell> createState() => _ShellState();
 }
 
-class _ShellState extends State<Shell> {
+class _ShellState extends State<Shell> with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    Future.delayed(const Duration(milliseconds: 1200), () {
+      if (mounted) detectClipboard(context.appRead);
+    });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState s) {
+    if (s == AppLifecycleState.resumed) detectClipboard(context.appRead);
+  }
+
   void _onTab(int i) {
     final app = context.appRead;
     final canPop = contentNav.currentState?.canPop() ?? false;
@@ -107,6 +128,7 @@ class _ShellState extends State<Shell> {
               child: BottomNav(tab: app.tab, onTab: _onTab),
             ),
           ),
+          if (app.clipSong != null) const ClipBanner(),
         ]),
       ),
     );
