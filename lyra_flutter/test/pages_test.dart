@@ -10,6 +10,7 @@ import 'package:lyra/pages/scan.dart';
 import 'package:lyra/pages/settings.dart';
 import 'package:lyra/player/player.dart';
 import 'package:lyra/shell/shell.dart';
+import 'package:lyra/ui/kit.dart';
 import 'package:lyra/widgets/sheets.dart';
 
 Future<AppState> _boot(WidgetTester tester) async {

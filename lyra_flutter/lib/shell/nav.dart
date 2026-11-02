@@ -352,7 +352,7 @@ class _BottomNavState extends State<BottomNav> with TickerProviderStateMixin {
           );
     Widget inner;
     if (bar == 'island' && on) {
-      inner = Row(mainAxisAlignment: MainAxisAlignment.center, children: [iconW, const SizedBox(width: 5), Flexible(child: Text(label, maxLines: 1, overflow: TextOverflow.clip, style: ts(12.5, w: FontWeight.w700, c: color)))]);
+      inner = Center(child: FittedBox(fit: BoxFit.scaleDown, child: Padding(padding: const EdgeInsets.symmetric(horizontal: 6), child: Row(mainAxisSize: MainAxisSize.min, children: [iconW, const SizedBox(width: 5), Text(label, maxLines: 1, style: ts(12.5, w: FontWeight.w700, c: color))]))));
     } else if (bar == 'text') {
       inner = Center(child: AnimatedDefaultTextStyle(duration: const Duration(milliseconds: 300), curve: Tk.spring, style: ts(on ? 15.5 : 14, w: on ? FontWeight.w800 : FontWeight.w500, c: on ? pal.t1 : pal.t2), child: Text(label)));
     } else {
