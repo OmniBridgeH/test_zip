@@ -372,7 +372,7 @@ class _BottomNavState extends State<BottomNav> with TickerProviderStateMixin {
         setState(() => justTapped = tab);
         widget.onTab(tab);
       },
-      child: SizedBox(height: h, child: ClipRect(child: inner)),
+      child: SizedBox(height: h, child: inner),
     );
   }
 }
