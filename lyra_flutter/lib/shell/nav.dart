@@ -1,5 +1,6 @@
 // 底部导航：9 种形态（液态玻璃 / 浮岛 / 胶囊 / 磨砂一体 / 经典 / 凹槽 / 程序坞 / 气泡 / 纯文字）。
 // 指示器液态拉伸、图标微动画、按住拖动水滴、滚动收起。位置规格见 [NavGeom]。
+import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
@@ -39,10 +40,19 @@ class BottomNav extends StatefulWidget {
 }
 
 class _BottomNavState extends State<BottomNav> with TickerProviderStateMixin {
-  late final stretch = AnimationController(vsync: this, duration: const Duration(milliseconds: 560));
-  late final breathe = AnimationController(vsync: this, duration: const Duration(milliseconds: 4200))..repeat(reverse: true);
-  late final spec = AnimationController(vsync: this, duration: const Duration(seconds: 7))..repeat();
+  late final stretch = AnimationController(vsync: this, duration: const Duration(milliseconds: 400));
+  // 镜面高光：每 7s 扫一次、每次 1.4s，其余时间不产生帧（之前常驻循环会让底栏每帧重绘毛玻璃）。
+  late final spec = AnimationController(vsync: this, duration: const Duration(milliseconds: 1400));
+  Timer? _specT;
   int from = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _specT = Timer.periodic(const Duration(seconds: 7), (_) {
+      if (mounted && context.appRead.bar == 'liquid' && !context.appRead.set.reduceMotion) spec.forward(from: 0);
+    });
+  }
   double? dragX; // 拖动水滴时的中心 x
   int? justTapped;
 
@@ -57,8 +67,8 @@ class _BottomNavState extends State<BottomNav> with TickerProviderStateMixin {
 
   @override
   void dispose() {
+    _specT?.cancel();
     stretch.dispose();
-    breathe.dispose();
     spec.dispose();
     super.dispose();
   }
@@ -178,29 +188,23 @@ class _BottomNavState extends State<BottomNav> with TickerProviderStateMixin {
           wd = ui.lerpDouble(a.width, b.width, e)!;
           sy = 1;
         } else {
-          // 液态拉伸：38% 时覆盖起止两项的 82%、纵向压扁到 .84；78% 时收拢并过冲 1.06
-          final fwd = b.left > a.left;
-          final l0 = math.min(a.left, b.left), r0 = math.max(a.right, b.right);
-          if (t < .38) {
-            final k = Curves.easeOut.transform(t / .38);
-            final ml = fwd ? a.left : l0 + (r0 - l0) * .18;
-            final mw = (r0 - l0) * .82;
-            l = ui.lerpDouble(a.left, ml, k)!;
-            wd = ui.lerpDouble(a.width, mw, k)!;
-            sy = ui.lerpDouble(1, .84, k)!;
-          } else if (t < .78) {
-            final k = Curves.easeInOut.transform((t - .38) / .4);
-            final ml = fwd ? a.left : l0 + (r0 - l0) * .18;
-            final mw = (r0 - l0) * .82;
-            l = ui.lerpDouble(ml, b.left, k)!;
-            wd = ui.lerpDouble(mw, b.width, k)!;
-            sy = ui.lerpDouble(.84, 1.06, k)!;
+          // 液态拉伸：前沿先冲向目标、后沿随后跟上，两条边都单调前进，中途不停顿；
+          // 移动中纵向轻微压扁，到达时一次很小的回弹。
+          final fwd = b.left >= a.left;
+          final lead = Curves.easeOutCubic.transform((t / .7).clamp(0.0, 1.0));
+          final trail = Curves.easeInOutCubic.transform(((t - .08) / .92).clamp(0.0, 1.0));
+          final double left, right;
+          if (fwd) {
+            right = ui.lerpDouble(a.right, b.right, lead)!;
+            left = ui.lerpDouble(a.left, b.left, trail)!;
           } else {
-            final k = Curves.easeOut.transform((t - .78) / .22);
-            l = b.left;
-            wd = b.width;
-            sy = ui.lerpDouble(1.06, 1, k)!;
+            left = ui.lerpDouble(a.left, b.left, lead)!;
+            right = ui.lerpDouble(a.right, b.right, trail)!;
           }
+          l = left;
+          wd = math.max(b.width * .6, right - left);
+          sy = 1 - .12 * math.sin(math.pi * math.min(1, t / .85));
+          if (t > .85) sy += .035 * math.sin((t - .85) / .15 * math.pi);
         }
         var rect = Rect.fromLTWH(l, b.top, wd, b.height);
         var sx = 1.0;
@@ -271,19 +275,15 @@ class _BottomNavState extends State<BottomNav> with TickerProviderStateMixin {
           child: drag,
         );
       case 'liquid':
-        return AnimatedBuilder(
-          animation: spec,
-          child: drag,
-          builder: (_, ch) => Container(
-            decoration: BoxDecoration(borderRadius: BorderRadius.circular(33), boxShadow: const [BoxShadow(color: Color(0x40000000), blurRadius: 30, offset: Offset(0, 12))]),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(33),
-              child: BackdropFilter(
-                filter: ui.ImageFilter.compose(outer: ui.ImageFilter.blur(sigmaX: 6, sigmaY: 6), inner: const ColorFilter.matrix(_saturate)),
-                child: CustomPaint(
-                  foregroundPainter: _LiquidRim(spec.value, pal.dark),
-                  child: Container(color: pal.dark ? const Color(0x8A14151E) : const Color(0xA6FFFFFF), child: ch),
-                ),
+        return Container(
+          decoration: BoxDecoration(borderRadius: BorderRadius.circular(33), boxShadow: const [BoxShadow(color: Color(0x40000000), blurRadius: 30, offset: Offset(0, 12))]),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(33),
+            child: BackdropFilter(
+              filter: ui.ImageFilter.compose(outer: ui.ImageFilter.blur(sigmaX: 6, sigmaY: 6), inner: const ColorFilter.matrix(_saturate)),
+              child: CustomPaint(
+                foregroundPainter: _LiquidRim(spec, pal.dark),
+                child: Container(color: pal.dark ? const Color(0x8A14151E) : const Color(0xA6FFFFFF), child: drag),
               ),
             ),
           ),
@@ -315,18 +315,15 @@ class _BottomNavState extends State<BottomNav> with TickerProviderStateMixin {
       case 'dock':
         return Container(decoration: BoxDecoration(color: pal.acc, shape: BoxShape.circle, boxShadow: [BoxShadow(color: pal.acc, blurRadius: 8)]));
       default: // liquid 水滴：顶部径向高光 + 内阴影 + 呼吸
-        return AnimatedBuilder(
-          animation: breathe,
-          builder: (_, __) => Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(h / 2),
-              gradient: RadialGradient(center: const Alignment(0, -1.2), radius: 1.3, colors: [
-                Colors.white.withValues(alpha: (pal.dark ? .22 : .5) + breathe.value * .06),
-                Colors.white.withValues(alpha: pal.dark ? .06 : .18),
-              ]),
-              border: Border.all(color: Colors.white.withValues(alpha: pal.dark ? .18 : .6)),
-              boxShadow: [BoxShadow(color: pal.accGlow.withValues(alpha: .18 + breathe.value * .12), blurRadius: 16)],
-            ),
+        return Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(h / 2),
+            gradient: RadialGradient(center: const Alignment(0, -1.2), radius: 1.3, colors: [
+              Colors.white.withValues(alpha: pal.dark ? .24 : .52),
+              Colors.white.withValues(alpha: pal.dark ? .06 : .18),
+            ]),
+            border: Border.all(color: Colors.white.withValues(alpha: pal.dark ? .18 : .6)),
+            boxShadow: [BoxShadow(color: pal.accGlow.withValues(alpha: .24), blurRadius: 16)],
           ),
         );
     }
@@ -386,9 +383,9 @@ const _saturate = <double>[
 
 /// 液态玻璃的折射边缘（上亮下暗）+ 每 7s 一道镜面高光。
 class _LiquidRim extends CustomPainter {
-  final double t;
+  final Animation<double> a;
   final bool dark;
-  _LiquidRim(this.t, this.dark);
+  _LiquidRim(this.a, this.dark) : super(repaint: a);
   @override
   void paint(Canvas canvas, Size s) {
     final rr = RRect.fromRectAndRadius(Offset.zero & s, Radius.circular(s.height / 2));
@@ -398,8 +395,9 @@ class _LiquidRim extends CustomPainter {
           ..style = PaintingStyle.stroke
           ..strokeWidth = 1
           ..shader = ui.Gradient.linear(Offset.zero, Offset(0, s.height), [Colors.white.withValues(alpha: dark ? .32 : .8), Colors.white.withValues(alpha: .04), Colors.black.withValues(alpha: .12)], [0, .5, 1]));
-    if (t < .22) {
-      final x = -s.width * .3 + (s.width * 1.6) * (t / .22);
+    final t = a.value;
+    if (t > 0 && t < 1) {
+      final x = -s.width * .3 + (s.width * 1.6) * Curves.easeInOut.transform(t);
       canvas.save();
       canvas.clipRRect(rr);
       canvas.drawRect(
@@ -410,7 +408,7 @@ class _LiquidRim extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_LiquidRim o) => o.t != t;
+  bool shouldRepaint(_LiquidRim o) => o.dark != dark || o.a != a;
 }
 
 /// 凹槽：底栏在选中圆正下方挖出凹口，凹口随指示器一起滑动。

@@ -9,6 +9,7 @@ import '../pages/library.dart';
 import '../pages/me.dart';
 import '../pages/search.dart';
 import '../ui/kit.dart';
+import '../widgets/announce.dart';
 import 'clip_banner.dart';
 import 'mini.dart';
 import 'nav.dart';
@@ -40,6 +41,9 @@ class _ShellState extends State<Shell> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    Future.delayed(const Duration(milliseconds: 700), () {
+      if (mounted && context.appRead.autoPopups) showAnnouncementPopups(context);
+    });
     Future.delayed(const Duration(milliseconds: 1200), () {
       if (mounted) detectClipboard(context.appRead);
     });
@@ -141,31 +145,45 @@ class TabsHost extends StatefulWidget {
   State<TabsHost> createState() => _TabsHostState();
 }
 
-class _TabsHostState extends State<TabsHost> {
-  int last = 0;
+/// 已访问过的 Tab 常驻（Offstage + 关闭 Ticker），切换时只做 200ms 淡入，
+/// 避免每次切 Tab 都整页重建导致底栏指示器掉帧。
+class _TabsHostState extends State<TabsHost> with SingleTickerProviderStateMixin {
+  final _built = <int>[];
+  int _last = -1;
+  late final _fade = AnimationController(vsync: this, duration: const Duration(milliseconds: 200), value: 1);
+
+  @override
+  void dispose() {
+    _fade.dispose();
+    super.dispose();
+  }
+
+  Widget _page(int t) => switch (t) {
+        1 => const SearchPage(),
+        2 => const DailyPage(),
+        3 => const LibraryPage(),
+        4 => const MePage(),
+        _ => const DiscoverPage(),
+      };
+
   @override
   Widget build(BuildContext context) {
-    final app = context.app;
-    final dir = (app.tab - last).sign;
-    last = app.tab;
-    final page = switch (app.tab) {
-      1 => const SearchPage(),
-      2 => const DailyPage(),
-      3 => const LibraryPage(),
-      4 => const MePage(),
-      _ => const DiscoverPage(),
-    };
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 360),
-      switchInCurve: Tk.out,
-      switchOutCurve: Curves.easeIn,
-      transitionBuilder: (ch, a) {
-        final incoming = ch.key == ValueKey(app.tab);
-        final off = Tween(begin: Offset(incoming ? .06 * dir : -.04 * dir, 0), end: Offset.zero).animate(a);
-        return FadeTransition(opacity: a, child: SlideTransition(position: off, child: ch));
-      },
-      layoutBuilder: (cur, prev) => Stack(children: [...prev, if (cur != null) cur]),
-      child: KeyedSubtree(key: ValueKey(app.tab), child: page),
-    );
+    final tab = context.app.tab;
+    if (!_built.contains(tab)) _built.add(tab);
+    if (tab != _last) {
+      if (_last >= 0 && !context.appRead.set.reduceMotion) _fade.forward(from: 0);
+      _last = tab;
+    }
+    return Stack(children: [
+      for (final t in _built)
+        Offstage(
+          key: ValueKey(t),
+          offstage: t != tab,
+          child: TickerMode(
+            enabled: t == tab,
+            child: FadeTransition(opacity: t == tab ? _fade : kAlwaysCompleteAnimation, child: _page(t)),
+          ),
+        ),
+    ]);
   }
 }
