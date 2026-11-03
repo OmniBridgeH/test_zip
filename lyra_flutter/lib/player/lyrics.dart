@@ -23,7 +23,40 @@ class LyricView extends StatefulWidget {
 
 class _LyricViewState extends State<LyricView> with TickerProviderStateMixin {
   late final c = AnimationController(vsync: this, duration: const Duration(milliseconds: 720 + 46 * 9));
-  late final waveC = AnimationController(vsync: this, duration: const Duration(milliseconds: 4800))..repeat();
+  // 波浪漂浮只在 wave 模式下运行；之前常驻循环会让每一行歌词每帧重建。
+  late final waveC = AnimationController(vsync: this, duration: const Duration(milliseconds: 4800));
+  AppState? _app;
+  double _h = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.wave) waveC.repeat();
+  }
+
+  @override
+  void didUpdateWidget(LyricView o) {
+    super.didUpdateWidget(o);
+    if (widget.wave && !waveC.isAnimating) waveC.repeat();
+    if (!widget.wave) waveC.stop();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final a = context.appRead;
+    if (a != _app) {
+      _app?.pos.removeListener(_onPos);
+      _app = a..pos.addListener(_onPos);
+    }
+  }
+
+  // 只有换行时才重建整块歌词；行内逐字进度由当前行自己的监听器刷新。
+  void _onPos() {
+    if (!mounted || _h == 0 || tops.isEmpty) return;
+    final nk = _app!.lyricIndex;
+    if (nk != k) setState(() => _retarget(nk, _h));
+  }
   int k = -1;
   List<double> from = [], to = [];
   double manual = 0;
@@ -34,6 +67,7 @@ class _LyricViewState extends State<LyricView> with TickerProviderStateMixin {
 
   @override
   void dispose() {
+    _app?.pos.removeListener(_onPos);
     c.dispose();
     waveC.dispose();
     back?.cancel();
@@ -92,12 +126,11 @@ class _LyricViewState extends State<LyricView> with TickerProviderStateMixin {
         to = [];
         k = -1;
       }
-      return ValueListenableBuilder<double>(
-        valueListenable: app.pos,
-        builder: (_, __, ___) {
+      _h = cs.maxHeight;
+      return Builder(
+        builder: (_) {
           final nk = app.lyricIndex;
           if (nk != k) _retarget(nk, cs.maxHeight);
-          final lp = app.lineProgress;
           return GestureDetector(
             behavior: HitTestBehavior.opaque,
             onVerticalDragStart: (_) {
@@ -116,7 +149,7 @@ class _LyricViewState extends State<LyricView> with TickerProviderStateMixin {
                 animation: Listenable.merge([c, waveC]),
                 builder: (_, __) => Stack(clipBehavior: Clip.hardEdge, children: [
                   for (var i = 0; i < lyrics.length; i++)
-                    if (_visible(i, cs.maxHeight)) _line(context, i, nk, lp, main, tr, pal),
+                    if (_visible(i, cs.maxHeight)) _line(context, i, nk, main, tr, pal),
                   if (manualMode)
                     Positioned(
                       right: 16,
@@ -153,7 +186,7 @@ class _LyricViewState extends State<LyricView> with TickerProviderStateMixin {
     });
   }
 
-  Widget _line(BuildContext context, int i, int cur, double lp, TextStyle main, TextStyle tr, Pal pal) {
+  Widget _line(BuildContext context, int i, int cur, TextStyle main, TextStyle tr, Pal pal) {
     final app = context.appRead;
     final s = app.set;
     final l = lyrics[i];
@@ -170,25 +203,32 @@ class _LyricViewState extends State<LyricView> with TickerProviderStateMixin {
     final fill = widget.fillColor ?? Colors.white;
     Widget text = Text(l.text, textAlign: widget.align, style: main.copyWith(color: Colors.white));
     if (isCur) {
-      text = ShaderMask(
-        blendMode: BlendMode.srcIn,
-        shaderCallback: (r) => LinearGradient(colors: [fill, fill, Colors.white.withValues(alpha: .38), Colors.white.withValues(alpha: .38)], stops: [0, lp, lp, 1]).createShader(r),
-        child: text,
+      final plain = text;
+      final glowText = s.glow ? RepaintBoundary(child: ImageFiltered(imageFilter: ui.ImageFilter.blur(sigmaX: 6, sigmaY: 6), child: Text(l.text, textAlign: widget.align, style: main.copyWith(color: fill)))) : null;
+      text = ValueListenableBuilder<double>(
+        valueListenable: app.pos,
+        builder: (_, __, ___) {
+          final lp = app.lineProgress;
+          final fillText = ShaderMask(
+            blendMode: BlendMode.srcIn,
+            shaderCallback: (r) => LinearGradient(colors: [fill, fill, Colors.white.withValues(alpha: .38), Colors.white.withValues(alpha: .38)], stops: [0, lp, lp, 1]).createShader(r),
+            child: plain,
+          );
+          if (glowText == null) return fillText;
+          return Stack(children: [
+            Opacity(opacity: .5 * lp, child: glowText),
+            Transform.translate(offset: Offset(0, -2.5 * lp), child: fillText),
+          ]);
+        },
       );
-      if (s.glow) {
-        text = Stack(children: [
-          Opacity(opacity: .5 * lp, child: ImageFiltered(imageFilter: ui.ImageFilter.blur(sigmaX: 6, sigmaY: 6), child: Text(l.text, textAlign: widget.align, style: main.copyWith(color: fill)))),
-          Transform.translate(offset: Offset(0, -2.5 * lp), child: text),
-        ]);
-      }
     }
     Widget body = Column(crossAxisAlignment: widget.align == TextAlign.center ? CrossAxisAlignment.center : CrossAxisAlignment.start, children: [
       if (s.roma && isCur) Text('ye hang de xing tu', style: ts(12.5, c: const Color(0x99FFFFFF))),
       text,
       if (s.trans) Padding(padding: const EdgeInsets.only(top: 4), child: Text(l.trans, textAlign: widget.align, style: tr.copyWith(color: Colors.white.withValues(alpha: isCur ? .78 : .5)))),
     ]);
-    if (!isCur && s.blur && d <= 4) {
-      body = ImageFiltered(imageFilter: ui.ImageFilter.blur(sigmaX: d * .55, sigmaY: d * .55), child: body);
+    if (!isCur && s.blur && d <= 3) {
+      body = RepaintBoundary(child: ImageFiltered(imageFilter: ui.ImageFilter.blur(sigmaX: d * .55, sigmaY: d * .55), child: body));
     }
     return Positioned(
       left: widget.padding.left + x,

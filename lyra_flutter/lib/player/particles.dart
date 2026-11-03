@@ -18,13 +18,20 @@ class ParticleView extends StatefulWidget {
   final String preset;
   final bool interactive;
   final double cyFrac;
-  const ParticleView({super.key, required this.preset, this.interactive = true, this.cyFrac = .4});
+  final bool animate;
+  const ParticleView({super.key, required this.preset, this.interactive = true, this.cyFrac = .4, this.animate = true});
   @override
   State<ParticleView> createState() => _ParticleViewState();
 }
 
 class _ParticleViewState extends State<ParticleView> with SingleTickerProviderStateMixin {
-  late final c = AnimationController(vsync: this, duration: const Duration(days: 1))..forward();
+  late final c = AnimationController(vsync: this, duration: const Duration(days: 1));
+  @override
+  void initState() {
+    super.initState();
+    if (widget.animate) c.forward();
+  }
+
   double yaw = .3, pitch = .32;
   bool dragging = false;
   @override
@@ -37,6 +44,9 @@ class _ParticleViewState extends State<ParticleView> with SingleTickerProviderSt
   Widget build(BuildContext context) {
     final app = context.app;
     final pal = context.pal;
+    if (!widget.animate) {
+      return RepaintBoundary(child: CustomPaint(painter: _PPainter(widget.preset, 3, .4, .32, 20, false, app.song.hue, pal.acc, .5), size: Size.infinite));
+    }
     final view = AnimatedBuilder(
       animation: c,
       builder: (_, __) {

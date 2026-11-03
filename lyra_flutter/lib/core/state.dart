@@ -73,13 +73,16 @@ class AppState extends ChangeNotifier {
   List<double> eq = [...eqPresets['流行']!];
   String eqPreset = '流行';
   bool eqOn = true;
-  int unread = 1;
+  final readAnn = <String>{};
+  bool autoPopups = true; // 进入主界面时自动弹出未读的弹窗公告（测试 / 截图时关闭）
+  int get unread => announcements.where((a) => !readAnn.contains(a.id)).length;
+  bool isRead(Announcement a) => readAnn.contains(a.id);
 
   AppState() {
     for (final p in platforms) {
       scriptOrder[p.id] = scripts.where((s) => s.platforms.contains(p.id)).map((s) => s.id).toList();
     }
-    _clock = Timer.periodic(const Duration(milliseconds: 100), (_) => _tick());
+    _clock = Timer.periodic(const Duration(milliseconds: 50), (_) => _tick());
   }
 
   // ---------- 派生 ----------

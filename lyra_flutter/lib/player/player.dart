@@ -17,21 +17,37 @@ import 'skins.dart';
 
 bool _playerOpen = false;
 
+/// 播放器路由：opaque，升起完成后下层外壳（毛玻璃底栏、迷你条）不再参与绘制。
+/// 下拉关闭直接驱动路由自身的动画，下层会在拖动时自动重新露出来。
+class PlayerRoute extends PageRouteBuilder<void> {
+  PlayerRoute({required super.pageBuilder})
+      : super(
+          opaque: true,
+          transitionDuration: const Duration(milliseconds: 380),
+          reverseTransitionDuration: const Duration(milliseconds: 260),
+          transitionsBuilder: _transition,
+        );
+
+  AnimationController get ctl => controller!;
+
+  static Widget _transition(BuildContext context, Animation<double> a, Animation<double> _, Widget child) {
+    final gesture = ModalRoute.of(context)?.navigator?.userGestureInProgress ?? false;
+    final v = a.value;
+    final t = gesture ? v : (a.status == AnimationStatus.reverse ? Tk.standard.transform(v) : Tk.out.transform(v));
+    if (t >= 1) return child;
+    return FractionalTranslation(
+      translation: Offset(0, 1 - t),
+      child: ClipRRect(borderRadius: BorderRadius.circular(36 * (1 - t).clamp(0.0, 1.0)), child: child),
+    );
+  }
+}
+
 Future<void> openPlayer(BuildContext context) async {
   if (_playerOpen) return;
   _playerOpen = true;
   final st = context.appRead;
   final pal = context.pal.forceDark;
-  await rootNav.currentState!.push(PageRouteBuilder(
-    opaque: false,
-    transitionDuration: Tk.playerOpen,
-    reverseTransitionDuration: const Duration(milliseconds: 300),
-    pageBuilder: (_, a, __) => AppScope(state: st, child: PalScope(pal: pal, child: const PlayerScreen())),
-    transitionsBuilder: (_, a, __, ch) {
-      final t = a.status == AnimationStatus.reverse ? Tk.standard.transform(a.value) : Tk.out.transform(a.value);
-      return FractionalTranslation(translation: Offset(0, 1 - t), child: ch);
-    },
-  ));
+  await rootNav.currentState!.push(PlayerRoute(pageBuilder: (_, a, __) => AppScope(state: st, child: PalScope(pal: pal, child: const PlayerScreen()))));
   _playerOpen = false;
   SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
 }
@@ -42,21 +58,52 @@ class PlayerScreen extends StatefulWidget {
   State<PlayerScreen> createState() => _PlayerScreenState();
 }
 
-class _PlayerScreenState extends State<PlayerScreen> with SingleTickerProviderStateMixin {
-  double drag = 0;
-  late final back = AnimationController(vsync: this, duration: const Duration(milliseconds: 320));
-  double from = 0;
+class _PlayerScreenState extends State<PlayerScreen> {
+  bool _dragging = false;
 
-  @override
-  void initState() {
-    super.initState();
-    back.addListener(() => setState(() => drag = from * (1 - Tk.out.transform(back.value))));
+  PlayerRoute? get _route {
+    final r = ModalRoute.of(context);
+    return r is PlayerRoute ? r : null;
   }
 
-  @override
-  void dispose() {
-    back.dispose();
-    super.dispose();
+  void _start(DragStartDetails _) {
+    final r = _route;
+    if (r == null || r.navigator == null) return;
+    _dragging = true;
+    r.navigator!.didStartUserGesture();
+  }
+
+  void _update(DragUpdateDetails d) {
+    final r = _route;
+    if (!_dragging || r == null) return;
+    final h = MediaQuery.of(context).size.height;
+    r.ctl.value = (r.ctl.value - (d.primaryDelta ?? 0) / h).clamp(0.0, 1.0);
+  }
+
+  void _end(DragEndDetails d) {
+    final r = _route;
+    if (!_dragging || r == null) return;
+    _dragging = false;
+    final nav = r.navigator!;
+    final v = d.primaryVelocity ?? 0;
+    final close = r.ctl.value < .82 || v > 800;
+    if (close) {
+      nav.pop();
+    } else {
+      r.ctl.animateTo(1, duration: const Duration(milliseconds: 260), curve: Tk.out);
+    }
+    if (r.ctl.isAnimating) {
+      late AnimationStatusListener l;
+      l = (s) {
+        if (s == AnimationStatus.completed || s == AnimationStatus.dismissed) {
+          r.ctl.removeStatusListener(l);
+          nav.didStopUserGesture();
+        }
+      };
+      r.ctl.addStatusListener(l);
+    } else {
+      nav.didStopUserGesture();
+    }
   }
 
   @override
@@ -64,29 +111,18 @@ class _PlayerScreenState extends State<PlayerScreen> with SingleTickerProviderSt
     final app = context.app;
     final sk = skinBy(app.skin);
     final mq = MediaQuery.of(context);
-    final radius = (drag / 4).clamp(0.0, 40.0);
+    final full = app.skin == 'standby';
     return GestureDetector(
-      onVerticalDragUpdate: (d) => setState(() => drag = math.max(0, drag + d.delta.dy)),
-      onVerticalDragEnd: (d) {
-        if (drag > 150 || (d.primaryVelocity ?? 0) > 800) {
-          Navigator.of(context).pop();
-        } else {
-          from = drag;
-          back.forward(from: 0);
-        }
-      },
-      child: Transform.translate(
-        offset: Offset(0, drag),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(radius),
-          child: Material(
-            color: Colors.black,
-            child: Stack(children: [
-              if (sk.usesBg) Positioned.fill(child: PlayerBackground(song: app.song, mode: app.bg, tone: app.tone, dim: app.dim, beat: true)),
-              Positioned.fill(child: Padding(padding: EdgeInsets.only(top: app.skin == 'standby' ? 0 : mq.padding.top, bottom: app.skin == 'standby' ? 0 : mq.padding.bottom), child: SkinHost(skin: app.skin))),
-            ]),
-          ),
-        ),
+      onVerticalDragStart: _start,
+      onVerticalDragUpdate: _update,
+      onVerticalDragEnd: _end,
+      onVerticalDragCancel: () => _end(DragEndDetails()),
+      child: Material(
+        color: Colors.black,
+        child: Stack(children: [
+          if (sk.usesBg) Positioned.fill(child: RepaintBoundary(child: PlayerBackground(song: app.song, mode: app.bg, tone: app.tone, dim: app.dim, beat: true))),
+          Positioned.fill(child: Padding(padding: EdgeInsets.only(top: full ? 0 : mq.padding.top, bottom: full ? 0 : mq.padding.bottom), child: RepaintBoundary(child: SkinHost(skin: app.skin)))),
+        ]),
       ),
     );
   }

@@ -157,7 +157,7 @@ void openSkins(BuildContext context, {bool dark = false}) {
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(color: pal.s1, borderRadius: BorderRadius.circular(18), border: Border.all(color: app.skin == s.id ? pal.acc : pal.line, width: app.skin == s.id ? 2 : 1)),
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Expanded(child: ClipRRect(borderRadius: BorderRadius.circular(12), child: SkinThumb(s.id))),
+                        Expanded(child: RepaintBoundary(child: ClipRRect(borderRadius: BorderRadius.circular(12), child: SkinThumb(s.id)))),
                         const SizedBox(height: 8),
                         Row(children: [Text(s.name, style: ts(14, w: FontWeight.w700, c: pal.t1)), const SizedBox(width: 6), if (s.tag != null) Badge2(s.tag!, acc: s.tag == '新' || s.tag == '默认'), const Spacer(), Text(s.cat, style: ts(11, c: pal.t3))]),
                         const SizedBox(height: 2),
