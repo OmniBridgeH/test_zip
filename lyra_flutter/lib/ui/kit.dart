@@ -12,50 +12,47 @@ import 'icons.dart';
 
 final rootNav = GlobalKey<NavigatorState>();
 
-// ============ 按压反馈 ============
+// ============ 按压反馈（不用系统水波纹：只做弹性缩放，列表行可加柔和高亮） ============
 class Press extends StatefulWidget {
   final Widget child;
   final VoidCallback? onTap, onLongPress;
   final double scale;
   final BorderRadius? radius;
-  final bool ripple;
-  const Press({super.key, required this.child, this.onTap, this.onLongPress, this.scale = .96, this.radius, this.ripple = true});
+  final bool hl;
+  const Press({super.key, required this.child, this.onTap, this.onLongPress, this.scale = .96, this.radius, this.hl = false});
   @override
   State<Press> createState() => _PressState();
 }
 
 class _PressState extends State<Press> {
   bool _down = false;
+  void _set(bool v) {
+    if (_down != v && mounted) setState(() => _down = v);
+  }
+
   @override
   Widget build(BuildContext context) {
     final enabled = widget.onTap != null || widget.onLongPress != null;
-    final pal = context.pal;
+    if (!enabled) return widget.child;
     Widget c = widget.child;
-    if (widget.ripple && enabled) {
-      c = Material(
-        type: MaterialType.transparency,
-        child: InkWell(
-          borderRadius: widget.radius,
-          splashFactory: InkSparkle.splashFactory,
-          splashColor: pal.dark ? const Color(0x38FFFFFF) : const Color(0x1A000000),
-          highlightColor: Colors.transparent,
-          onTap: widget.onTap,
-          onLongPress: widget.onLongPress,
-          onHighlightChanged: (v) => setState(() => _down = v),
-          child: c,
-        ),
-      );
-    } else if (enabled) {
-      c = GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTapDown: (_) => setState(() => _down = true),
-        onTapUp: (_) => setState(() => _down = false),
-        onTapCancel: () => setState(() => _down = false),
-        onTap: widget.onTap,
-        onLongPress: widget.onLongPress,
+    if (widget.hl) {
+      final pal = context.pal;
+      c = AnimatedContainer(
+        duration: Duration(milliseconds: _down ? 60 : 220),
+        foregroundDecoration: BoxDecoration(color: _down ? (pal.dark ? const Color(0x12FFFFFF) : const Color(0x0C000000)) : Colors.transparent, borderRadius: widget.radius),
         child: c,
       );
     }
+    c = GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTapDown: (_) => _set(true),
+      onTapUp: (_) => _set(false),
+      onTapCancel: () => _set(false),
+      onTap: widget.onTap,
+      onLongPress: widget.onLongPress,
+      child: c,
+    );
+    if (widget.scale >= 1) return c;
     return AnimatedScale(
       scale: _down ? widget.scale : 1,
       duration: Duration(milliseconds: _down ? 90 : 260),
@@ -533,6 +530,7 @@ class Item extends StatelessWidget {
     return Press(
       onTap: tap,
       scale: 1,
+      hl: true,
       child: Container(
         constraints: const BoxConstraints(minHeight: 54),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -656,7 +654,29 @@ class Marquee extends StatefulWidget {
 }
 
 class _MarqueeState extends State<Marquee> with SingleTickerProviderStateMixin {
-  late final c = AnimationController(vsync: this, duration: const Duration(seconds: 11))..repeat();
+  // 开头静止 2s（这段时间不占用帧），再用 9s 滚完一轮。
+  late final c = AnimationController(vsync: this, duration: const Duration(seconds: 9));
+  bool _overflow = false;
+  @override
+  void initState() {
+    super.initState();
+    _loop();
+  }
+
+  Future<void> _loop() async {
+    while (mounted) {
+      await Future.delayed(const Duration(seconds: 2));
+      if (!mounted) return;
+      if (!_overflow) continue;
+      try {
+        await c.forward(from: 0).orCancel;
+      } catch (_) {
+        return;
+      }
+      if (mounted) c.value = 0;
+    }
+  }
+
   @override
   void dispose() {
     c.dispose();
@@ -667,7 +687,8 @@ class _MarqueeState extends State<Marquee> with SingleTickerProviderStateMixin {
   Widget build(BuildContext context) {
     return LayoutBuilder(builder: (context, cs) {
       final tp = TextPainter(text: TextSpan(text: widget.text, style: widget.style), textDirection: TextDirection.ltr, maxLines: 1)..layout();
-      if (tp.width <= cs.maxWidth) return Text(widget.text, maxLines: 1, style: widget.style);
+      _overflow = tp.width > cs.maxWidth;
+      if (!_overflow) return Text(widget.text, maxLines: 1, style: widget.style);
       final gap = 40.0, span = tp.width + gap;
       return ShaderMask(
         shaderCallback: (r) => const LinearGradient(colors: [Colors.transparent, Colors.black, Colors.black, Colors.transparent], stops: [0, .06, .92, 1]).createShader(r),
@@ -677,7 +698,7 @@ class _MarqueeState extends State<Marquee> with SingleTickerProviderStateMixin {
             child: AnimatedBuilder(
               animation: c,
               builder: (_, __) {
-                final t = c.value < .18 ? 0.0 : (c.value - .18) / .82;
+                final t = c.value;
                 return OverflowBox(
                   alignment: Alignment.centerLeft,
                   maxWidth: double.infinity,
@@ -700,17 +721,18 @@ class Rise extends StatefulWidget {
   final Widget child;
   final int index;
   final double dy;
-  const Rise(this.index, this.child, {super.key, this.dy = 14});
+  final int step, ms;
+  const Rise(this.index, this.child, {super.key, this.dy = 14, this.step = 32, this.ms = 520});
   @override
   State<Rise> createState() => _RiseState();
 }
 
 class _RiseState extends State<Rise> with SingleTickerProviderStateMixin {
-  late final c = AnimationController(vsync: this, duration: const Duration(milliseconds: 520));
+  late final c = AnimationController(vsync: this, duration: Duration(milliseconds: widget.ms));
   @override
   void initState() {
     super.initState();
-    Future.delayed(Duration(milliseconds: math.min(widget.index, 16) * 32), () {
+    Future.delayed(Duration(milliseconds: math.min(widget.index, 16) * widget.step), () {
       if (mounted) c.forward();
     });
   }
@@ -878,7 +900,9 @@ class _ToastViewState extends State<_ToastView> with SingleTickerProviderStateMi
             final t = c.status == AnimationStatus.reverse ? Curves.easeIn.transform(c.value) : Tk.softSpring.transform(c.value);
             return Opacity(opacity: c.value.clamp(0, 1), child: Transform.translate(offset: Offset(0, -70 * (1 - t)), child: ch));
           },
-          child: Center(
+          child: Material(
+            type: MaterialType.transparency,
+            child: Center(
             child: Glass(
               radius: 24,
               color: const Color(0xE6141520),
@@ -893,6 +917,7 @@ class _ToastViewState extends State<_ToastView> with SingleTickerProviderStateMi
                 ]),
               ),
             ),
+          ),
           ),
         ),
       ),
@@ -1060,6 +1085,7 @@ class _SongRowState extends State<SongRow> with SingleTickerProviderStateMixin {
     final subStyle = ts(12.5, c: pal.t2);
     final row = Press(
       scale: .99,
+      hl: true,
       onTap: () {
         if (c.value < -.05) {
           c.animateTo(0, curve: Tk.out);
