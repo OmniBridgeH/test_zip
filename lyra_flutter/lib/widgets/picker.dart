@@ -1,6 +1,5 @@
 // 音源选择器：源条（平台 → 解析脚本）+ 从源条位置向下展开的形变面板。
 import 'dart:math' as math;
-import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import '../core/state.dart';
 import '../core/tokens.dart';
@@ -101,9 +100,12 @@ Future<void> showPicker(BuildContext context, Rect anchor) {
     opaque: false,
     barrierDismissible: true,
     barrierColor: Colors.transparent,
-    transitionDuration: const Duration(milliseconds: 460),
-    reverseTransitionDuration: const Duration(milliseconds: 260),
-    pageBuilder: (ctx, a, _) => AppScope(state: st, child: PalScope(pal: pal, child: _PickerPanel(anchor: anchor, anim: a))),
+    transitionDuration: const Duration(milliseconds: 300),
+    reverseTransitionDuration: const Duration(milliseconds: 180),
+    pageBuilder: (ctx, a, _) => AppScope(
+      state: st,
+      child: PalScope(pal: pal, child: Material(type: MaterialType.transparency, child: _PickerPanel(anchor: anchor, anim: a))),
+    ),
   ));
 }
 
@@ -173,10 +175,12 @@ class _PickerPanelState extends State<_PickerPanel> {
         _h(pal, '解析脚本', '${app.platform.name} 可用 ${list.length} 个 · 按成功率排序'),
         const SizedBox(height: 6),
         Column(key: ValueKey(app.plat), children: [
-          Rise(0, _row(context, 'auto', 'zap', Row(children: [Text('自动选择', style: ts(14.5, w: FontWeight.w600, c: pal.t1)), const SizedBox(width: 6), const Badge2('推荐', acc: true)]), Text('失败时按智能换源规则依次切换', style: ts(12, c: pal.t3)), null)),
+          Rise(0, step: 18, ms: 300, _row(context, 'auto', 'zap', Row(children: [Text('自动选择', style: ts(14.5, w: FontWeight.w600, c: pal.t1)), const SizedBox(width: 6), const Badge2('推荐', acc: true)]), Text('失败时按智能换源规则依次切换', style: ts(12, c: pal.t3)), null)),
           for (final (i, s) in list.indexed)
             Rise(
               i + 1,
+              step: 18,
+              ms: 300,
               _row(
                 context,
                 s.id,
@@ -199,13 +203,7 @@ class _PickerPanelState extends State<_PickerPanel> {
       Positioned.fill(
         child: GestureDetector(
           onTap: () => Navigator.of(context).pop(),
-          child: AnimatedBuilder(
-            animation: widget.anim,
-            builder: (_, __) => BackdropFilter(
-              filter: ui.ImageFilter.blur(sigmaX: 4 * widget.anim.value, sigmaY: 4 * widget.anim.value),
-              child: Container(color: Colors.black.withValues(alpha: .35 * widget.anim.value)),
-            ),
-          ),
+          child: FadeTransition(opacity: widget.anim, child: const ColoredBox(color: Color(0x73000000))),
         ),
       ),
       Positioned(
@@ -216,14 +214,14 @@ class _PickerPanelState extends State<_PickerPanel> {
           animation: widget.anim,
           child: panel,
           builder: (_, ch) {
-            final t = widget.anim.status == AnimationStatus.reverse ? Curves.easeIn.transform(widget.anim.value) : Tk.softSpring.transform(widget.anim.value);
-            final sx = .86 + .14 * t, sy = .4 + .6 * t;
+            final v = widget.anim.value;
+            final rev = widget.anim.status == AnimationStatus.reverse;
+            final t = rev ? Curves.easeIn.transform(v) : const Cubic(.2, 1.12, .4, 1).transform(v);
+            final sx = .92 + .08 * t, sy = .6 + .4 * t;
+            final body = Transform(alignment: Alignment.topCenter, transform: Matrix4.diagonal3Values(sx, sy, 1), child: ch);
             return Opacity(
-              opacity: widget.anim.value.clamp(0, 1),
-              child: ClipRect(
-                clipper: _Reveal(math.min(1, widget.anim.value * 1.4)),
-                child: Transform(alignment: Alignment.topCenter, transform: Matrix4.diagonal3Values(sx, sy, 1), child: ch),
-              ),
+              opacity: (v * 1.6).clamp(0.0, 1.0),
+              child: v >= 1 ? body : ClipRect(clipper: _Reveal(math.min(1, v * 1.5)), child: body),
             );
           },
         ),
@@ -246,7 +244,7 @@ class _PickerPanelState extends State<_PickerPanel> {
         haptic(context);
         app.update(() => app.script = id);
         setState(() => justPicked = id);
-        await Future.delayed(const Duration(milliseconds: 260 + 240));
+        await Future.delayed(const Duration(milliseconds: 280));
         if (!context.mounted) return;
         Navigator.of(context).pop();
         toast('解析：${app.curScript.name} · ${app.platform.short}', 'zap');
