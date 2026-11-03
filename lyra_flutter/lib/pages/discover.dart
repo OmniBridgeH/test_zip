@@ -253,7 +253,10 @@ class _PlatAccount extends StatelessWidget {
   Widget build(BuildContext context) {
     final app = context.app;
     final pal = context.pal;
-    final p = app.platform, f = platFeat[p.id]!, nick = app.platLogin[p.id]!;
+    final p = app.platform, f = platFeat[p.id]!;
+    // 退出登录时，正在淡出的旧内容还会再构建一次，这里不能假设一定已登录
+    final nick = app.platLogin[p.id];
+    if (nick == null || nick.isEmpty) return const SizedBox.shrink();
     return CardBox(
       onTap: () => push(context, const PlatAccountsPage()),
       padding: const EdgeInsets.all(14),
