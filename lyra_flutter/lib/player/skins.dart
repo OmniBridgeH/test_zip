@@ -12,6 +12,7 @@ import '../data/models.dart';
 import '../ui/cover.dart';
 import '../ui/icons.dart';
 import '../ui/kit.dart';
+import '../main.dart' show overlayStyle;
 import '../widgets/sheets.dart';
 import '../pages/settings.dart';
 import 'lyrics.dart';
@@ -677,7 +678,10 @@ class MinimalSkin extends StatelessWidget {
   }
 }
 
-// ============================ 待机 · 横屏 ============================
+// ============================ 待机 · 横屏全屏 ============================
+// 全屏沉浸（隐藏状态栏和导航条）。背景是封面色的渐变，左右两侧各有一组同心波光随节拍向外荡开；
+// 中间是衬线大字歌词，身后叠一个放大、模糊的当前字作为「影子」；底部一行细的歌曲信息与控制。
+// 轻点屏幕显示时间与关闭按钮，4 秒后自动隐藏。
 class StandbySkin extends StatefulWidget {
   const StandbySkin({super.key});
   @override
@@ -685,105 +689,206 @@ class StandbySkin extends StatefulWidget {
 }
 
 class _StandbySkinState extends State<StandbySkin> {
+  bool chrome = false;
+  Timer? _hide;
+  double _phase = 0, _lastT = 0;
+
   @override
   void initState() {
     super.initState();
     SystemChrome.setPreferredOrientations([DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight]);
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   }
 
   @override
   void dispose() {
+    _hide?.cancel();
     SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     super.dispose();
+  }
+
+  void _toggle() {
+    _hide?.cancel();
+    setState(() => chrome = !chrome);
+    if (chrome) {
+      _hide = Timer(const Duration(seconds: 4), () {
+        if (mounted) setState(() => chrome = false);
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final app = context.app;
-    final pal = context.pal;
     final s = app.song;
+    final size = MediaQuery.of(context).size;
+    final short = math.min(size.width, size.height);
     final now = DateTime.now();
-    final land = MediaQuery.of(context).size.width > MediaQuery.of(context).size.height;
-    final clock = Ticker2(builder: (c, t) {
-      final n = DateTime.now();
-      final colon = (t % 1) < .5;
-      return Row(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.center, children: [
-        Text(n.hour.toString().padLeft(2, '0'), style: ts(land ? 132 : 96, w: FontWeight.w200, c: Colors.white, h: 1, num: true)),
-        Opacity(opacity: colon ? 1 : .2, child: Text(':', style: ts(land ? 120 : 88, w: FontWeight.w200, c: Colors.white, h: 1))),
-        Text(n.minute.toString().padLeft(2, '0'), style: ts(land ? 132 : 96, w: FontWeight.w200, c: Colors.white, h: 1, num: true)),
-      ]);
-    });
     const wk = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
-    final left = Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [
-      FittedBox(child: clock),
-      const SizedBox(height: 6),
-      Row(children: [Text('${now.month} 月 ${now.day} 日 ${wk[now.weekday - 1]}', style: ts(16, w: FontWeight.w600, c: const Color(0xCCFFFFFF))), const SizedBox(width: 12), Icon(Icons.battery_charging_full_rounded, size: 18, color: pal.ok), Text(' 充电中 86%', style: ts(13, c: pal.ok))]),
-      const SizedBox(height: 18),
-      ValueListenableBuilder<double>(valueListenable: app.pos, builder: (_, __, ___) => Text(lyrics[app.lyricIndex].text, maxLines: 2, style: ts(20, w: FontWeight.w700, c: Colors.white))),
-    ]);
-    final card = Glass(
-      radius: 26,
-      color: const Color(0x66000000),
-      border: Border.all(color: const Color(0x26FFFFFF)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Row(children: [
-            Cover.song(s, size: 76, radius: 14),
-            const SizedBox(width: 12),
-            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(s.title, maxLines: 1, style: ts(17, w: FontWeight.w700, c: Colors.white)), Text(s.artist, style: ts(13, c: const Color(0x99FFFFFF)))])),
-          ]),
-          const SizedBox(height: 12),
-          const ProgressBar(padding: EdgeInsets.zero),
-          Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [IBtn('prev', color: Colors.white, iconSize: 30, onTap: app.prev), const PlayButton(size: 56), IBtn('next', color: Colors.white, iconSize: 30, onTap: app.next)]),
-        ]),
-      ),
-    );
-    return Stack(children: [
-      Positioned.fill(child: Ticker2(builder: (c, t) => Beat(builder: (c, b, p) => CustomPaint(painter: _StandbyBg(coverColors(s.hue), app.playing ? t : 0, b))))),
-      SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(28, 16, 28, 16),
-          child: land
-              ? Row(children: [Expanded(flex: 5, child: left), const SizedBox(width: 20), SizedBox(width: 330, child: card)])
-              : Column(children: [const Spacer(), left, const Spacer(), card, const SizedBox(height: 8), Text('横放手机体验完整待机', style: ts(12, c: const Color(0x66FFFFFF)))]),
+    final white = Colors.white.withValues(alpha: .88);
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: _toggle,
+      child: Stack(children: [
+        Positioned.fill(
+          child: RepaintBoundary(
+            child: Ticker2(builder: (c, t) {
+              if (app.playing && !app.set.reduceMotion) _phase += (t - _lastT).clamp(0.0, .1);
+              _lastT = t;
+              return CustomPaint(painter: WaveGlowPainter(s.hue, _phase, app.playing ? app.beat() : 0));
+            }),
+          ),
         ),
-      ),
-      Positioned(left: 8, top: MediaQuery.of(context).padding.top + 4, child: IBtn('close', color: Colors.white70, onTap: () => Navigator.of(context).pop())),
-    ]);
+        Positioned.fill(
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(size.width * .1, 0, size.width * .1, short * .22),
+            child: Center(child: _StandbyLyric(size: short * .1, hue: s.hue)),
+          ),
+        ),
+        // 底部一行：封面 · 歌名 · 控制 · 收藏
+        Positioned(
+          left: size.width * .08,
+          right: size.width * .08,
+          bottom: short * .07,
+          child: Row(children: [
+            Cover.song(s, size: 46, radius: 6),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                Text(s.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: ts(14, w: FontWeight.w600, c: white)),
+                const SizedBox(height: 2),
+                Text(s.artist, maxLines: 1, style: ts(11.5, c: Colors.white.withValues(alpha: .5))),
+              ]),
+            ),
+            IBtn('prev', color: white, iconSize: 26, onTap: app.prev),
+            const SizedBox(width: 6),
+            Press(
+              onTap: app.toggle,
+              scale: .86,
+              child: SizedBox(width: 56, height: 56, child: Icon(ic(app.playing ? 'pause' : 'play'), size: 42, color: white)),
+            ),
+            const SizedBox(width: 6),
+            IBtn('next', color: white, iconSize: 26, onTap: app.next),
+            const SizedBox(width: 10),
+            HeartBtn(app.cur, size: 24, offColor: Colors.white.withValues(alpha: .7)),
+          ]),
+        ),
+        // 轻点出现：时间 + 关闭
+        Positioned(
+          left: size.width * .08,
+          right: 16,
+          top: 14,
+          child: IgnorePointer(
+            ignoring: !chrome,
+            child: AnimatedOpacity(
+              duration: Tk.base,
+              opacity: chrome ? 1 : 0,
+              child: Row(children: [
+                Text('${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}', style: ts(20, w: FontWeight.w300, c: white, num: true)),
+                const SizedBox(width: 10),
+                Text('${now.month} 月 ${now.day} 日 ${wk[now.weekday - 1]}', style: ts(13, c: Colors.white.withValues(alpha: .6))),
+                const Spacer(),
+                IBtn('close', color: white, onTap: () => Navigator.of(context).pop()),
+              ]),
+            ),
+          ),
+        ),
+      ]),
+    );
   }
 }
 
-class _StandbyBg extends CustomPainter {
-  final List<Color> cols;
-  final double t, beat;
-  _StandbyBg(this.cols, this.t, this.beat);
+/// 当前句：衬线大字，已唱部分更亮；身后叠一个放大模糊的「当前字」影子。
+class _StandbyLyric extends StatelessWidget {
+  final double size, hue;
+  const _StandbyLyric({required this.size, required this.hue});
+  static const _serif = ['Songti SC', 'STSong', 'Noto Serif SC', 'Noto Serif CJK SC', 'Source Han Serif SC', 'serif'];
+  @override
+  Widget build(BuildContext context) {
+    final app = context.app;
+    return ValueListenableBuilder<double>(
+      valueListenable: app.pos,
+      builder: (_, __, ___) {
+        final k = app.lyricIndex;
+        final line = lyrics[k].text;
+        final chars = line.characters.toList();
+        final p = app.lineProgress;
+        final ci = (p * chars.length).floor().clamp(0, chars.length - 1);
+        var ghost = chars[ci];
+        if (ghost.trim().isEmpty && ci > 0) ghost = chars[ci - 1];
+        final style = TextStyle(fontFamily: 'serif', fontFamilyFallback: _serif, fontSize: size, fontWeight: FontWeight.w700, letterSpacing: size * .06, height: 1.25);
+        return AnimatedSwitcher(
+          duration: const Duration(milliseconds: 520),
+          switchInCurve: Tk.out,
+          transitionBuilder: (c, a) => FadeTransition(opacity: a, child: ScaleTransition(scale: Tween(begin: .96, end: 1.0).animate(a), child: c)),
+          child: Stack(key: ValueKey(k), alignment: Alignment.center, clipBehavior: Clip.none, children: [
+            RepaintBoundary(
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 360),
+                child: ImageFiltered(
+                  key: ValueKey('$k-$ci'),
+                  imageFilter: ui.ImageFilter.blur(sigmaX: 3, sigmaY: 3),
+                  child: Text(ghost, style: style.copyWith(fontSize: size * 2.6, color: hsl(hue, .55, .1, .45), letterSpacing: 0)),
+                ),
+              ),
+            ),
+            ShaderMask(
+              blendMode: BlendMode.srcIn,
+              shaderCallback: (r) => LinearGradient(colors: const [Color(0xFFF2F7FF), Color(0xFFF2F7FF), Color(0xB3C9DBF5), Color(0xB3C9DBF5)], stops: [0, p, p, 1]).createShader(r),
+              child: Text(line, textAlign: TextAlign.center, maxLines: 2, style: style.copyWith(color: Colors.white, shadows: [Shadow(color: hsl(hue, .6, .15, .5), blurRadius: 18)])),
+            ),
+          ]),
+        );
+      },
+    );
+  }
+}
+
+/// 待机背景：封面色水平渐变 + 左右两组同心波光（柔光带用径向渐变画，不用模糊滤镜，保证 60fps）。
+class WaveGlowPainter extends CustomPainter {
+  final double hue, t, beat;
+  WaveGlowPainter(this.hue, this.t, this.beat);
   @override
   void paint(Canvas canvas, Size s) {
-    canvas.drawRect(Offset.zero & s, Paint()..color = const Color(0xFF05060A));
-    for (var i = 0; i < 6; i++) {
-      final path = Path()..moveTo(0, s.height);
-      final base = s.height * (.45 + i * .09);
-      for (var x = 0.0; x <= s.width; x += 12) {
-        path.lineTo(x, base + math.sin(x / s.width * math.pi * 2 + t * (.4 + i * .1) + i) * (18 + beat * 14));
+    final rect = Offset.zero & s;
+    canvas.drawRect(
+        rect,
+        Paint()
+          ..shader = ui.Gradient.linear(Offset.zero, Offset(s.width, 0), [hsl(hue, .55, .14), hsl(hue, .55, .3), hsl(hue + 8, .7, .5)], [0, .5, 1]));
+    final h = s.height;
+    for (final (c, side) in [(Offset(-s.width * .04, h * .5), -1.0), (Offset(s.width * 1.04, h * .5), 1.0)]) {
+      const n = 6;
+      for (var k = 0; k < n; k++) {
+        final ph = ((k + t * .22) % n) / n; // 0 → 1 向外
+        final r = h * (.12 + ph * 1.05);
+        final band = h * (.05 + .03 * beat);
+        final fade = math.sin(ph * math.pi); // 生成和消失都柔和
+        final a = (side > 0 ? .1 : .07) * fade * (1 + beat * .8);
+        canvas.drawCircle(
+            c,
+            r + band,
+            Paint()
+              ..shader = ui.Gradient.radial(c, r + band, [Colors.transparent, Colors.white.withValues(alpha: a), Colors.black.withValues(alpha: a * .9), Colors.transparent], [
+                ((r - band) / (r + band)).clamp(0.0, 1.0),
+                (r / (r + band)).clamp(0.0, 1.0),
+                ((r + band * .5) / (r + band)).clamp(0.0, 1.0),
+                1,
+              ]));
+        if (k % 2 == 0) {
+          canvas.drawCircle(c, r, Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 1
+            ..color = Colors.white.withValues(alpha: .18 * fade));
+        }
       }
-      path
-        ..lineTo(s.width, s.height)
-        ..close();
-      canvas.drawPath(path, Paint()..color = cols[i % 4].withValues(alpha: .22));
     }
-    final o = Offset(s.width * .85, s.height * .9);
-    for (var k = 0; k < 3; k++) {
-      final ph = ((t * 112 / 60) + k / 3) % 1;
-      canvas.drawOval(Rect.fromCenter(center: o, width: 80 + ph * 520, height: 40 + ph * 260), Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.5 + beat * 2
-        ..color = Colors.white.withValues(alpha: (1 - ph) * .25));
-    }
+    // 上下压暗，让歌词和底部控制更清楚
+    canvas.drawRect(rect, Paint()..shader = ui.Gradient.linear(Offset.zero, Offset(0, h), [const Color(0x33000000), Colors.transparent, Colors.transparent, const Color(0x66000000)], [0, .25, .6, 1]));
   }
 
   @override
-  bool shouldRepaint(_StandbyBg o) => true;
+  bool shouldRepaint(WaveGlowPainter o) => o.t != t || o.beat != beat || o.hue != hue;
 }
 
 // ============================ 磁带 ============================
@@ -1406,7 +1511,7 @@ class MagazineSkin extends StatelessWidget {
     final now = DateTime.now();
     const mon = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle.dark,
+      value: overlayStyle(false),
       child: Container(
         color: const Color(0xFFEFE8DA),
         child: Stack(children: [
@@ -1567,7 +1672,7 @@ class SkinThumb extends StatelessWidget {
     final s = app.song;
     switch (id) {
       case 'particles':
-        return const ParticleView(preset: 'galaxy', interactive: false);
+        return const ParticleView(preset: 'galaxy', interactive: false, animate: false);
       case 'magazine':
         return Container(color: const Color(0xFFEFE8DA), padding: const EdgeInsets.all(8), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Container(height: 1.5, color: Colors.black), const SizedBox(height: 4), Text(s.title, maxLines: 1, style: const TextStyle(fontFamily: 'serif', fontSize: 16, fontWeight: FontWeight.w900, color: Colors.black)), const SizedBox(height: 4), Expanded(child: Cover.song(s, size: 0, radius: 0)), const SizedBox(height: 4), const Text('“ ……', style: TextStyle(color: Color(0xFFC0392B), fontWeight: FontWeight.w900))]));
       case 'terminal':
@@ -1587,7 +1692,11 @@ class SkinThumb extends StatelessWidget {
       case 'pulse':
         return Container(color: const Color(0xFF0B0C12), child: CustomPaint(painter: _PulsePainter(.6, .7, pal.acc), child: Center(child: ClipOval(child: Cover.song(s, size: 46, radius: 23)))));
       case 'standby':
-        return Container(color: const Color(0xFF05060A), padding: const EdgeInsets.all(8), child: Row(children: [Text('21\n40', style: ts(22, w: FontWeight.w200, c: Colors.white, h: 1, num: true)), const Spacer(), Cover.song(s, size: 40, radius: 8)]));
+        return Stack(children: [
+          Positioned.fill(child: CustomPaint(painter: WaveGlowPainter(s.hue, 1.3, 0))),
+          Center(child: Text(lyrics[6].text.split(' ').first, style: const TextStyle(fontFamily: 'serif', fontFamilyFallback: ['Songti SC', 'Noto Serif CJK SC'], fontSize: 16, fontWeight: FontWeight.w700, color: Color(0xFFF2F7FF)))),
+          Positioned(left: 8, right: 8, bottom: 8, child: Row(children: [Cover.song(s, size: 16, radius: 3), const Spacer(), const Icon(Icons.pause_rounded, size: 16, color: Colors.white70)])),
+        ]);
       case 'minimal':
         return Container(color: const Color(0xFF0E0F14), padding: const EdgeInsets.all(10), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Row(children: [Cover.song(s, size: 24, radius: 5), const SizedBox(width: 6), Container(width: 40, height: 5, color: Colors.white54)]), const SizedBox(height: 10), for (var i = 0; i < 4; i++) Container(margin: const EdgeInsets.only(bottom: 6), width: 60.0 + (i * 13 % 30), height: 5, color: i == 1 ? pal.acc : Colors.white24)]));
       case 'stage':
