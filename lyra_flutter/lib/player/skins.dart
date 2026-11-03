@@ -828,15 +828,17 @@ class _StandbyLyric extends StatelessWidget {
                 duration: const Duration(milliseconds: 360),
                 child: ImageFiltered(
                   key: ValueKey('$k-$ci'),
-                  imageFilter: ui.ImageFilter.blur(sigmaX: 3, sigmaY: 3),
+                  imageFilter: ui.ImageFilter.blur(sigmaX: 3, sigmaY: 3, tileMode: TileMode.decal),
                   child: Text(ghost, style: style.copyWith(fontSize: size * 2.6, color: hsl(hue, .55, .1, .45), letterSpacing: 0)),
                 ),
               ),
             ),
+            // 阴影单独一层：放进 ShaderMask 会被染成浅色，变成一块发亮的矩形
+            Text(line, textAlign: TextAlign.center, maxLines: 2, style: style.copyWith(color: Colors.transparent, shadows: [Shadow(color: hsl(hue, .6, .12, .55), blurRadius: 16)])),
             ShaderMask(
               blendMode: BlendMode.srcIn,
               shaderCallback: (r) => LinearGradient(colors: const [Color(0xFFF2F7FF), Color(0xFFF2F7FF), Color(0xB3C9DBF5), Color(0xB3C9DBF5)], stops: [0, p, p, 1]).createShader(r),
-              child: Text(line, textAlign: TextAlign.center, maxLines: 2, style: style.copyWith(color: Colors.white, shadows: [Shadow(color: hsl(hue, .6, .15, .5), blurRadius: 18)])),
+              child: Text(line, textAlign: TextAlign.center, maxLines: 2, style: style.copyWith(color: Colors.white)),
             ),
           ]),
         );
