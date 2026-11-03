@@ -9,6 +9,7 @@ import '../ui/brand.dart';
 import '../ui/cover.dart';
 import '../ui/icons.dart';
 import '../ui/kit.dart';
+import '../widgets/announce.dart';
 import '../widgets/sheets.dart';
 import 'common.dart';
 import 'scan.dart';
@@ -20,41 +21,60 @@ class AnnouncementsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final app = context.app;
     final pal = context.pal;
-    return SubPage(title: '公告', children: [
-      for (final (i, a) in announcements.indexed)
-        Rise(
-          i,
-          Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: CardBox(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Row(children: [
-                  Badge2(a.type, acc: a.important, color: a.important ? pal.danger : null),
-                  const SizedBox(width: 8),
-                  Text(a.date, style: ts(12, c: pal.t3, num: true)),
-                  const Spacer(),
-                  if (a.important && app.unread > 0) Container(width: 8, height: 8, decoration: BoxDecoration(color: pal.danger, shape: BoxShape.circle)),
+    final locked = announcements.where((a) => !a.closable && !app.isRead(a)).length;
+    return SubPage(
+      title: '公告',
+      actions: [
+        IBtn('refresh', onTap: () {
+          // 演示：把弹窗公告重置为未读，再弹一次
+          app.update(() => app.readAnn.removeWhere((id) => announcements.any((a) => a.id == id && a.popup)));
+          showAnnouncementPopups(context);
+        }),
+      ],
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(Tk.pad, 0, Tk.pad, 12),
+          child: Row(children: [
+            Expanded(child: Text(app.unread > 0 ? '${app.unread} 条未读' : '全部已读', style: ts(13, c: pal.t2))),
+            if (app.unread > 0)
+              Btn.sec('全部标为已读', small: true, onTap: () {
+                app.update(() {
+                  for (final a in announcements) {
+                    if (a.closable) app.readAnn.add(a.id);
+                  }
+                });
+                if (locked > 0) toast('有 $locked 条公告需要点开单独确认', 'lock');
+              }),
+          ]),
+        ),
+        for (final (i, a) in announcements.indexed)
+          Rise(
+            i,
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: CardBox(
+                onTap: () => showAnnouncementDetail(context, a),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Row(children: [
+                    Badge2(a.type, acc: !a.important, color: a.important ? pal.danger : null),
+                    if (a.popup) ...[const SizedBox(width: 6), const Badge2('弹窗', icon: 'bell')],
+                    if (!a.closable) ...[const SizedBox(width: 6), Badge2(app.isRead(a) ? '已确认' : '需确认', icon: app.isRead(a) ? 'check' : 'lock', color: app.isRead(a) ? pal.ok : pal.warn)],
+                    const SizedBox(width: 8),
+                    Text(a.date, style: ts(12, c: pal.t3, num: true)),
+                    const Spacer(),
+                    AnimatedOpacity(duration: Tk.base, opacity: app.isRead(a) ? 0 : 1, child: Container(width: 8, height: 8, decoration: BoxDecoration(color: pal.danger, shape: BoxShape.circle))),
+                  ]),
+                  const SizedBox(height: 8),
+                  Text(a.title, style: ts(16, w: FontWeight.w700, c: app.isRead(a) ? pal.t2 : pal.t1)),
+                  const SizedBox(height: 4),
+                  Text(a.body, maxLines: 2, overflow: TextOverflow.ellipsis, style: ts(13, c: pal.t3, h: 1.6)),
                 ]),
-                const SizedBox(height: 8),
-                Text(a.title, style: ts(16, w: FontWeight.w700, c: pal.t1)),
-                const SizedBox(height: 4),
-                Text(a.body, style: ts(13, c: pal.t2, h: 1.6)),
-                if (a.important) ...[
-                  const SizedBox(height: 12),
-                  Btn(app.unread > 0 ? '查看并确认' : '已确认', small: true, onTap: app.unread > 0
-                      ? () => showLDialog(context, icon: 'bell', title: a.title, body: '${a.body}\n\n确认后继续使用即表示你同意更新后的条款。', actions: [
-                            ('我已知晓', BtnKind.pri, () {
-                              app.update(() => app.unread = 0);
-                              toast('已确认', 'check');
-                            }),
-                          ])
-                      : null),
-                ],
-              ]),
+              ),
             ),
           ),
-        ),
-    ]);
+        const Hint('普通公告只在这里显示；带「弹窗」的会在进入 App 时弹出，带「需确认」的必须单独点「我已知晓」。右上角可重新演示弹窗。'),
+      ],
+    );
   }
 }
 

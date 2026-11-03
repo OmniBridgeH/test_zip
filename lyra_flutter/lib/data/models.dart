@@ -60,10 +60,12 @@ class PromoBanner {
   const PromoBanner(this.kicker, this.title, this.desc, this.hue);
 }
 
+/// 公告。[popup] = 进入 App 时弹窗展示；否则只出现在公告页。
+/// [closable] = 弹窗可直接关闭 / 被「全部已读」带走；false 时必须单独点「我已知晓」确认。
 class Announcement {
-  final String type, date, title, body;
-  final bool important;
-  const Announcement(this.type, this.date, this.title, this.body, {this.important = false});
+  final String id, type, date, title, body;
+  final bool important, popup, closable;
+  const Announcement(this.id, this.type, this.date, this.title, this.body, {this.important = false, this.popup = false, this.closable = true});
 }
 
 class Device {
