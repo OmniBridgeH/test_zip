@@ -2,7 +2,7 @@ name: lyra-flutter
 
 on:
   push:
-    branches: [lyra-flutter]
+    branches: [main, lyra-flutter]
     paths: ['lyra_flutter/**', '.github/workflows/lyra-flutter.yml']
   workflow_dispatch:
 
