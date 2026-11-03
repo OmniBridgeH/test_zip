@@ -14,7 +14,7 @@ import 'widgets/sheets.dart';
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   registerSheets();
-  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(statusBarColor: Colors.transparent, systemNavigationBarColor: Colors.transparent));
+  SystemChrome.setSystemUIOverlayStyle(overlayStyle(true));
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   final app = AppState();
@@ -22,6 +22,18 @@ void main() {
   if (shot != null) applyShotState(app, shot);
   runApp(LyraApp(state: app, shot: shot));
 }
+
+/// 系统栏全透明（沿用 .light/.dark 预设会把 Android 导航条刷成黑色）。
+SystemUiOverlayStyle overlayStyle(bool dark) => SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: dark ? Brightness.light : Brightness.dark,
+      statusBarBrightness: dark ? Brightness.dark : Brightness.light,
+      systemNavigationBarColor: Colors.transparent,
+      systemNavigationBarDividerColor: Colors.transparent,
+      systemNavigationBarIconBrightness: dark ? Brightness.light : Brightness.dark,
+      systemNavigationBarContrastEnforced: false,
+      systemStatusBarContrastEnforced: false,
+    );
 
 class LyraApp extends StatelessWidget {
   final AppState state;
@@ -47,8 +59,12 @@ class LyraApp extends StatelessWidget {
           builder: (context, child) => PalScope(
             pal: pal,
             child: AnnotatedRegion<SystemUiOverlayStyle>(
-              value: pal.dark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark,
-              child: DefaultTextStyle.merge(style: TextStyle(fontFamily: family, fontFamilyFallback: fallback), child: child!),
+              value: overlayStyle(pal.dark),
+              // 显式给出默认文字样式：没有 Material 祖先的浮层（Toast、音源面板）也不会出现黄色双下划线
+              child: DefaultTextStyle(
+                style: TextStyle(fontFamily: family, fontFamilyFallback: fallback, fontSize: 14, color: pal.t1, decoration: TextDecoration.none),
+                child: child!,
+              ),
             ),
           ),
           home: Root(shot: shot),
@@ -63,7 +79,10 @@ class LyraApp extends StatelessWidget {
       useMaterial3: true,
       brightness: dark ? Brightness.dark : Brightness.light,
       scaffoldBackgroundColor: pal.bg,
-      splashFactory: InkSparkle.splashFactory,
+      splashFactory: NoSplash.splashFactory,
+      splashColor: Colors.transparent,
+      highlightColor: Colors.transparent,
+      hoverColor: Colors.transparent,
       fontFamily: family,
       fontFamilyFallback: fallback,
       colorScheme: ColorScheme.fromSeed(seedColor: pal.acc, brightness: dark ? Brightness.dark : Brightness.light, surface: pal.bg),
