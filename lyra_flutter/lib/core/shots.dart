@@ -8,6 +8,7 @@ import '../pages/scan.dart';
 import '../pages/settings.dart';
 import '../player/player.dart';
 import '../shell/shell.dart';
+import '../widgets/picker.dart';
 import '../widgets/sheets.dart';
 import 'state.dart';
 
@@ -24,6 +25,7 @@ void applyShotState(AppState app, String id) {
   final parts = id.split('.');
   app.authed = true;
   app.playing = true;
+  app.autoPopups = parts.first == 'popup';
   for (final m in parts.skip(1)) {
     if (m == 'light') app.themeMode = ThemeMode.light;
     if (m.startsWith('acc')) app.accent = int.tryParse(m.substring(3)) ?? 0;
@@ -123,6 +125,9 @@ void applyShotUi(BuildContext context, String id) {
       break;
     case 'player':
       openPlayer(context);
+      break;
+    case 'picker':
+      showPicker(context, Rect.fromLTWH(20, MediaQuery.of(context).padding.top + 76, MediaQuery.of(context).size.width - 40, 54));
       break;
     case 'sheet':
       final k = parts.length > 1 ? parts[1] : 'more';

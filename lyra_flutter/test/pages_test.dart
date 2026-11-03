@@ -17,7 +17,7 @@ Future<AppState> _boot(WidgetTester tester) async {
   registerSheets();
   tester.view.physicalSize = const Size(1170, 2532);
   tester.view.devicePixelRatio = 3;
-  final app = AppState()..authed = true;
+  final app = AppState()..authed = true..autoPopups = false;
   await tester.pumpWidget(LyraApp(state: app));
   await tester.pump(const Duration(seconds: 1));
   return app;

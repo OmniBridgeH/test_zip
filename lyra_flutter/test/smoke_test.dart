@@ -28,7 +28,7 @@ void main() {
   });
 
   testWidgets('every tab renders', (tester) async {
-    final app = AppState()..authed = true;
+    final app = AppState()..authed = true..autoPopups = false;
     await _boot(tester, app);
     for (var t = 0; t < 5; t++) {
       app.update(() => app.tab = t);
@@ -39,7 +39,7 @@ void main() {
   });
 
   testWidgets('every bar style renders', (tester) async {
-    final app = AppState()..authed = true;
+    final app = AppState()..authed = true..autoPopups = false;
     await _boot(tester, app);
     for (final b in ['liquid', 'island', 'capsule', 'frosted', 'classic', 'cutout', 'dock', 'bubble', 'text']) {
       app.update(() => app.bar = b);
